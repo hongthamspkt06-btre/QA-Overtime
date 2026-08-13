@@ -394,6 +394,17 @@ async function apiSave(date, data){
   return await res.json();
 }
 
+/* Lay nhieu key trong 1 lan goi POST (dung cho tab Trend thay vi goi
+   apiGet() rieng cho tung ngay). Tra ve map { key: {rows:[...]} }. */
+async function apiGetBulk(keys){
+  if(!keys.length) return {};
+  const res = await fetchWithRetry(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'getBulk', keys })
+  });
+  return await res.json();
+}
+
 async function loadData(showSyncDot){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
   const skipRender = !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock);
@@ -602,30 +613,29 @@ function trendDatesForYearMonth(year, month){
   return month ? trendDatesInMonth(year, Number(month)) : trendDatesInYear(year);
 }
 
-/* Fires every missing date as one big parallel batch (the browser/HTTP layer
-   handles connection concurrency itself) instead of awaiting small sequential
-   chunks - this is the main lever for "load as fast as possible", since
-   sequential chunking was the bottleneck (total time = chunks * round-trip). */
-const TREND_MAX_INFLIGHT = 60;
-
-async function fetchDatesCached(category, dates, onProgress){
-  const cache = trendCache[category];
-  const missing = dates.filter(d => cache[d] === undefined);
-  let done = 0;
-  for(let i = 0; i < missing.length; i += TREND_MAX_INFLIGHT){
-    const chunk = missing.slice(i, i + TREND_MAX_INFLIGHT);
-    await Promise.all(chunk.map(async d => {
-      try{
-        const res = await apiGet(category + '::' + d);
-        cache[d] = (res && res.rows) ? res.rows : [];
-        if(cache[d].length) trendKnownYears.add(Number(d.slice(0,4)));
-      }catch(e){
-        cache[d] = [];
-      }
-      done++;
-      if(onProgress) onProgress(done, missing.length);
-    }));
+/* Gop toan bo ngay con thieu (ca Staff lan Worker) thanh 1 lan goi POST
+   duy nhat (apiGetBulk) thay vi goi apiGet() rieng cho tung ngay. Day la
+   nguyen nhan chinh khien tab Trend truoc day mat toi 10 phut: xem ca nam
+   co the phai goi GAS toi ~730 lan (365 ngay x 2 category). */
+async function fetchAllTrendDates(dates, onDone){
+  const missingStaff = dates.filter(d => trendCache.Staff[d] === undefined);
+  const missingWorker = dates.filter(d => trendCache.Worker[d] === undefined);
+  const keys = missingStaff.map(d => 'Staff::' + d)
+    .concat(missingWorker.map(d => 'Worker::' + d));
+  if(keys.length){
+    const bulk = await apiGetBulk(keys);
+    missingStaff.forEach(d => {
+      const res = bulk['Staff::' + d];
+      trendCache.Staff[d] = (res && res.rows) ? res.rows : [];
+      if(trendCache.Staff[d].length) trendKnownYears.add(Number(d.slice(0,4)));
+    });
+    missingWorker.forEach(d => {
+      const res = bulk['Worker::' + d];
+      trendCache.Worker[d] = (res && res.rows) ? res.rows : [];
+      if(trendCache.Worker[d].length) trendKnownYears.add(Number(d.slice(0,4)));
+    });
   }
+  if(onDone) onDone();
 }
 
 /* Loads whatever daily data every visible Trend box currently needs (union of
@@ -654,24 +664,7 @@ async function loadTrendData(){
   render();
   try{
     const allDates = trendAllNeededDates();
-    const totalFetches = allDates.filter(d => trendCache.Staff[d] === undefined).length
-      + allDates.filter(d => trendCache.Worker[d] === undefined).length;
-    let completed = 0;
-    let lastRender = 0;
-    const onProgress = () => {
-      completed++;
-      const now = Date.now();
-      // throttle re-renders while streaming progress so we don't thrash the DOM
-      if(now - lastRender > 150 || completed === totalFetches){
-        lastRender = now;
-        tr.loadProgress = totalFetches ? { done: completed, total: totalFetches } : null;
-        render();
-      }
-    };
-    await Promise.all([
-      fetchDatesCached('Staff', allDates, onProgress),
-      fetchDatesCached('Worker', allDates, onProgress)
-    ]);
+    await fetchAllTrendDates(allDates);
     tr.loaded = true;
   }catch(e){
     console.error(e);
