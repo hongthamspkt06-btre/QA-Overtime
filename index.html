@@ -438,11 +438,11 @@ async function loadDailySummary(showSyncDot){
   const ds = state.dailySummary;
   if(showSyncDot){ ds.syncing = true; render(); }
   try{
-    const [staffRes, workerRes, metaRes] = await Promise.all([
-      apiGet('Staff::' + state.date),
-      apiGet('Worker::' + state.date),
-      apiGet('DailySummary::' + state.date)
-    ]);
+    const d = state.date;
+    const bulk = await apiGetBulk(['Staff::' + d, 'Worker::' + d, 'DailySummary::' + d]);
+    const staffRes = bulk['Staff::' + d];
+    const workerRes = bulk['Worker::' + d];
+    const metaRes = bulk['DailySummary::' + d];
     ds.staffRows = (staffRes && staffRes.rows) ? staffRes.rows : [];
     ds.workerRows = (workerRes && workerRes.rows) ? workerRes.rows : [];
     ds.meta = (metaRes && metaRes.meta) ? metaRes.meta : {};
@@ -493,9 +493,9 @@ async function loadWeeklySummary(showSyncDot){
   if(showSyncDot){ ws.syncing = true; render(); }
   try{
     const days = weeklyDayList();
-    const results = await Promise.all(days.map(d => apiGet('Staff::' + d)));
+    const bulk = await apiGetBulk(days.map(d => 'Staff::' + d));
     const byDate = {};
-    days.forEach((d, i) => { byDate[d] = (results[i] && results[i].rows) ? results[i].rows : []; });
+    days.forEach(d => { const res = bulk['Staff::' + d]; byDate[d] = (res && res.rows) ? res.rows : []; });
     ws.staffByDate = byDate;
     ws.syncError = '';
   }catch(e){
