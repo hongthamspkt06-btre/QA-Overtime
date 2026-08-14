@@ -54,6 +54,10 @@
   .btn-steel{background:var(--steel);border-color:var(--steel);color:#fff;}
   .btn-steel:hover{filter:brightness(1.08);}
   .btn-red{color:var(--red);}
+  .btn-green{background:var(--green);border-color:var(--green);color:#fff;}
+  .btn-green:hover{filter:brightness(1.08);}
+  .btn-danger{background:var(--red);border-color:var(--red);color:#fff;}
+  .btn-danger:hover{filter:brightness(1.08);}
   .btn-sm{padding:5px 9px;font-size:11.5px;}
 
   .sync-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);font-family:var(--mono);}
@@ -101,6 +105,7 @@
   .status-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.03em;}
   .status-pending{background:var(--amber-dim);color:var(--amber);}
   .status-approved{background:var(--green-dim);color:var(--green);}
+  .status-rejected{background:var(--red-dim);color:var(--red);}
 
   .approval-panel{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
   .approval-left{display:flex;align-items:center;gap:14px;}
@@ -112,6 +117,10 @@
   .confirm-box{display:flex;align-items:center;gap:10px;background:var(--amber-dim);border:1px solid #f0d19c;border-radius:8px;padding:8px 12px;flex-wrap:wrap;}
   .confirm-box span{font-size:12.5px;color:var(--amber);font-weight:600;}
   .confirm-box input[type=password]{width:130px;}
+  .confirm-box.reject-box{background:var(--red-dim);border-color:#f3c6c2;flex-direction:column;align-items:stretch;gap:8px;}
+  .confirm-box.reject-box span{color:var(--red);}
+  .confirm-box textarea{width:100%;min-height:56px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;color:var(--text);resize:vertical;}
+  .reject-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .pw-error{font-size:11.5px;color:var(--red);font-weight:600;}
 
   .footer-note{font-size:11px;color:var(--sub);text-align:center;margin-top:20px;line-height:1.6;}
@@ -291,7 +300,7 @@ function escXml(s){
 let state = {
   category: 'Staff',
   date: todayStr(),
-  data: { rows: [], approved:false, approvedAt:null, approvedBy:null },
+  data: { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' },
   loading: true,
   syncing: false,
   syncError: '',
@@ -300,6 +309,9 @@ let state = {
   formError: '',
   confirmingSign: false,
   confirmingUnlock: false,
+  confirmingReject: false,
+  showSignOffActions: false,
+  rejectComment: '',
   confirmingDeleteId: null,
   confirmingDeleteName: '',
   pwInput: '',
@@ -407,11 +419,11 @@ async function apiGetBulk(keys){
 
 async function loadData(showSyncDot){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
-  const skipRender = !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock);
+  const skipRender = !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock || state.confirmingReject);
   if(showSyncDot){ state.syncing = true; if(!skipRender) render(); }
   try{
     const result = await apiGet(storageDateKey());
-    state.data = result && result.rows ? result : { rows: [], approved:false, approvedAt:null, approvedBy:null };
+    state.data = result && result.rows ? result : { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
     state.syncError = '';
   }catch(e){
     console.error(e);
@@ -626,12 +638,14 @@ async function fetchAllTrendDates(dates, onDone){
     const bulk = await apiGetBulk(keys);
     missingStaff.forEach(d => {
       const res = bulk['Staff::' + d];
-      trendCache.Staff[d] = (res && res.rows) ? res.rows : [];
+      // Rejected dates are excluded from Trend entirely — only Pending
+      // (not yet signed) or Done (approved) data counts toward the charts.
+      trendCache.Staff[d] = (res && res.rows && !res.rejected) ? res.rows : [];
       if(trendCache.Staff[d].length) trendKnownYears.add(Number(d.slice(0,4)));
     });
     missingWorker.forEach(d => {
       const res = bulk['Worker::' + d];
-      trendCache.Worker[d] = (res && res.rows) ? res.rows : [];
+      trendCache.Worker[d] = (res && res.rows && !res.rejected) ? res.rows : [];
       if(trendCache.Worker[d].length) trendKnownYears.add(Number(d.slice(0,4)));
     });
   }
@@ -829,7 +843,7 @@ async function fetchLatest(){
     const result = await apiGet(storageDateKey());
     if(result && result.rows) return result;
   }catch(e){ console.error(e); }
-  return state.data || { rows: [], approved:false, approvedAt:null, approvedBy:null };
+  return state.data || { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
 }
 
 async function persist(newData){
@@ -879,7 +893,7 @@ function askSignConfirm(){ state.confirmingSign = true; state.pwInput=''; state.
 function cancelSignConfirm(){ state.confirmingSign = false; state.pwInput=''; state.pwError=''; render(); }
 async function doSignApprove(){
   if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
-  state.confirmingSign = false; state.pwInput=''; state.pwError='';
+  state.confirmingSign = false; state.pwInput=''; state.pwError=''; state.showSignOffActions = false;
   const latest = await fetchLatest();
   const updated = Object.assign({}, latest, { approved:true, approvedAt: new Date().toISOString(), approvedBy: 'Kim Joo Shik' });
   await persist(updated);
@@ -889,9 +903,21 @@ function askUnlockConfirm(){ state.confirmingUnlock = true; state.pwInput=''; st
 function cancelUnlockConfirm(){ state.confirmingUnlock = false; state.pwInput=''; state.pwError=''; render(); }
 async function doUnlockApprove(){
   if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
-  state.confirmingUnlock = false; state.pwInput=''; state.pwError='';
+  state.confirmingUnlock = false; state.pwInput=''; state.pwError=''; state.showSignOffActions = false;
   const latest = await fetchLatest();
-  const updated = Object.assign({}, latest, { approved:false, approvedAt:null });
+  const updated = Object.assign({}, latest, { approved:false, approvedAt:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' });
+  await persist(updated);
+}
+
+function askRejectConfirm(){ state.confirmingReject = true; state.pwInput=''; state.pwError=''; state.rejectComment=''; render(); setTimeout(()=>{ const el=document.getElementById('rejectCommentField'); if(el) el.focus(); },0); }
+function cancelRejectConfirm(){ state.confirmingReject = false; state.pwInput=''; state.pwError=''; state.rejectComment=''; render(); }
+async function doRejectApprove(){
+  if(!state.rejectComment.trim()){ state.pwError = 'Please enter a comment.'; render(); return; }
+  if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
+  const comment = state.rejectComment.trim();
+  state.confirmingReject = false; state.pwInput=''; state.pwError=''; state.rejectComment=''; state.showSignOffActions = false;
+  const latest = await fetchLatest();
+  const updated = Object.assign({}, latest, { approved:false, approvedAt:null, rejected:true, rejectedAt: new Date().toISOString(), rejectedBy: 'Kim Joo Shik', rejectComment: comment });
   await persist(updated);
 }
 
@@ -1218,6 +1244,8 @@ function render(){
   const d = state.data;
   const rows = d.rows || [];
   const approved = !!d.approved;
+  const rejected = !!d.rejected;
+  const locked = approved || rejected;
 
   const prevScroll = document.querySelector('.table-scroll');
   const savedScrollTop = prevScroll ? prevScroll.scrollTop : null;
@@ -1306,24 +1334,24 @@ function render(){
       <div class="entry-row">
         <div class="field grow2 autocomplete-wrap">
           <label>Emp ID</label>
-          <input type="text" id="f_idCode" autocomplete="off" placeholder="Select or type Emp ID" value="${esc(state.form.idCode)}" ${approved?'disabled':''}>
-          ${(state.empSuggestOpen && !approved) ? `<div class="autocomplete-list" id="empSuggestList">${empSuggestListHtml()}</div>` : ''}
+          <input type="text" id="f_idCode" autocomplete="off" placeholder="Select or type Emp ID" value="${esc(state.form.idCode)}" ${locked?'disabled':''}>
+          ${(state.empSuggestOpen && !locked) ? `<div class="autocomplete-list" id="empSuggestList">${empSuggestListHtml()}</div>` : ''}
         </div>
         <div class="field grow2">
           <label>Full Name *</label>
-          <input type="text" id="f_fullName" value="${esc(state.form.fullName)}" ${approved?'disabled':''}>
+          <input type="text" id="f_fullName" value="${esc(state.form.fullName)}" ${locked?'disabled':''}>
         </div>
         <div class="field small">
           <label>From</label>
-          <select id="f_otFrom" ${approved?'disabled':''}>${optionsHtml(FROM_LIST, state.form.otFrom)}</select>
+          <select id="f_otFrom" ${locked?'disabled':''}>${optionsHtml(FROM_LIST, state.form.otFrom)}</select>
         </div>
         <div class="field small">
           <label>To</label>
-          <select id="f_otTo" ${approved?'disabled':''}>${optionsHtml(TO_LIST, state.form.otTo)}</select>
+          <select id="f_otTo" ${locked?'disabled':''}>${optionsHtml(TO_LIST, state.form.otTo)}</select>
         </div>
         <div class="field small">
           <label>Factory</label>
-          <select id="f_factory" ${approved?'disabled':''}>${optionsHtml(FACTORY_LIST, state.form.factory)}</select>
+          <select id="f_factory" ${locked?'disabled':''}>${optionsHtml(FACTORY_LIST, state.form.factory)}</select>
         </div>
         <div class="field">
           <label>Own Team</label>
@@ -1331,17 +1359,17 @@ function render(){
         </div>
         <div class="field">
           <label>Support Team</label>
-          <select id="f_requestedBy" ${approved?'disabled':''}>${optionsHtml(SUPPORT_LIST, state.form.requestedBy)}</select>
+          <select id="f_requestedBy" ${locked?'disabled':''}>${optionsHtml(SUPPORT_LIST, state.form.requestedBy)}</select>
         </div>
         <div class="field grow2">
           <label>Reason</label>
-          <select id="f_remark" ${approved?'disabled':''}>${optionsHtml(REMARK_LIST, state.form.remark)}</select>
+          <select id="f_remark" ${locked?'disabled':''}>${optionsHtml(REMARK_LIST, state.form.remark)}</select>
         </div>
-        <button class="btn btn-steel" id="addBtn" ${approved?'disabled':''}>+ Add</button>
+        <button class="btn btn-steel" id="addBtn" ${locked?'disabled':''}>+ Add</button>
       </div>
       ${state.formError ? `<div class="inline-msg error">&#9888; ${esc(state.formError)}</div>` : ''}
       ${state.exportMsg ? `<div class="inline-msg ${state.exportMsg.indexOf('failed')>=0?'error':'info'}">${esc(state.exportMsg)}</div>` : ''}
-      ${approved ? '<div class="inline-msg info">This form has been signed off &mdash; no further changes allowed. Click "Unlock / Edit" below to make changes.</div>' : ''}
+      ${locked ? `<div class="inline-msg info">This form has been ${approved ? 'signed off' : 'rejected'} &mdash; no further changes allowed. Click "Unlock / Edit" below to make changes.</div>` : ''}
     </div>
 
     <div class="panel" style="padding:0;overflow:hidden;">
@@ -1376,7 +1404,7 @@ function render(){
               <td class="by">${esc(r.ownTeam)}</td>
               <td>${esc(r.requestedBy)}</td>
               <td class="by">${esc(r.remark)}</td>
-              <td>${approved ? '' : `<button class="btn btn-sm btn-red delRowBtn" data-id="${r.id}" data-name="${esc(r.fullName)}" title="Delete">&times;</button>`}</td>
+              <td>${locked ? '' : `<button class="btn btn-sm btn-red delRowBtn" data-id="${r.id}" data-name="${esc(r.fullName)}" title="Delete">&times;</button>`}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -1393,13 +1421,16 @@ function render(){
             <img src="${SIG_IMG}" alt="Signature">
             <div class="sig-meta"><b>Kim Joo Shik</b><br>${fmtDateTime(d.approvedAt)}</div>
           </div>
+        ` : rejected ? `
+          <span class="status-badge status-rejected">&#10007; REJECTED</span>
+          <div class="sig-meta"><b>Kim Joo Shik</b><br>${fmtDateTime(d.rejectedAt)}${d.rejectComment ? '<br>&ldquo;' + esc(d.rejectComment) + '&rdquo;' : ''}</div>
         ` : `
           <span class="status-badge status-pending">&#9679; PENDING SIGN-OFF</span>
           <span style="font-size:12px;color:var(--sub);">QA Senior Manager: Kim Joo Shik</span>
         `}
       </div>
       <div>
-        ${approved
+        ${locked
           ? (state.confirmingUnlock
               ? `<div class="confirm-box">
                    <span>Password to unlock:</span>
@@ -1411,13 +1442,29 @@ function render(){
               : `<button class="btn btn-sm" id="unlockBtn">&#128274; Unlock / Edit</button>`)
           : (state.confirmingSign
               ? `<div class="confirm-box">
-                   <span>Password to sign off:</span>
+                   <span>Password to confirm Done:</span>
                    <input type="password" id="pwField" value="${esc(state.pwInput)}" placeholder="Password">
                    <button class="btn btn-sm btn-steel" id="signYes">Confirm</button>
                    <button class="btn btn-sm" id="signNo">Cancel</button>
                    ${state.pwError ? `<span class="pw-error">${esc(state.pwError)}</span>` : ''}
                  </div>`
-              : `<button class="btn btn-steel" id="signBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#9998; SIGN OFF (Kim Joo Shik)</button>`)
+              : state.confirmingReject
+                ? `<div class="confirm-box reject-box">
+                     <span>Reason for rejection:</span>
+                     <textarea id="rejectCommentField" placeholder="Enter comment...">${esc(state.rejectComment)}</textarea>
+                     <div class="reject-actions">
+                       <input type="password" id="pwFieldReject" value="${esc(state.pwInput)}" placeholder="Password">
+                       <button class="btn btn-sm btn-danger" id="rejectYes">Confirm Reject</button>
+                       <button class="btn btn-sm" id="rejectNo">Cancel</button>
+                     </div>
+                     ${state.pwError ? `<span class="pw-error">${esc(state.pwError)}</span>` : ''}
+                   </div>`
+                : state.showSignOffActions
+                  ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">
+                       <button class="btn btn-green" id="signBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#10003; DONE</button>
+                       <button class="btn btn-danger" id="rejectBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#10007; REJECT</button>
+                     </div>`
+                  : `<button class="btn btn-steel" id="signOffBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#9998; SIGN OFF (Kim Joo Shik)</button>`)
         }
       </div>
     </div>
@@ -1442,6 +1489,8 @@ function render(){
     state.category = cat;
     state.confirmingSign = false;
     state.confirmingUnlock = false;
+    state.confirmingReject = false;
+    state.showSignOffActions = false;
     state.exportMsg = '';
     state.formError = '';
     state.form = { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' };
@@ -1471,7 +1520,7 @@ function render(){
   if(tabTrend) tabTrend.onclick = ()=>switchTab('Trend');
 
   const dp = document.getElementById('datePicker');
-  if(dp) dp.onchange = (e)=>{ state.date = e.target.value; state.loading = true; state.confirmingSign=false; state.confirmingUnlock=false; state.exportMsg=''; loadData(false); };
+  if(dp) dp.onchange = (e)=>{ state.date = e.target.value; state.loading = true; state.confirmingSign=false; state.confirmingUnlock=false; state.confirmingReject=false; state.showSignOffActions=false; state.exportMsg=''; loadData(false); };
 
   const rb = document.getElementById('refreshBtn');
   if(rb) rb.onclick = ()=>loadData(true);
@@ -1552,6 +1601,9 @@ function render(){
     render();
   };
 
+  const sob = document.getElementById('signOffBtn');
+  if(sob) sob.onclick = ()=>{ state.showSignOffActions = true; render(); };
+
   const sb = document.getElementById('signBtn');
   if(sb) sb.onclick = askSignConfirm;
   const sy = document.getElementById('signYes');
@@ -1560,6 +1612,17 @@ function render(){
   if(sn) sn.onclick = cancelSignConfirm;
   const pwf = document.getElementById('pwField');
   if(pwf){ pwf.oninput = (e)=>{ state.pwInput = e.target.value; }; pwf.onkeydown = (e)=>{ if(e.key==='Enter') doSignApprove(); }; }
+
+  const rjb = document.getElementById('rejectBtn');
+  if(rjb) rjb.onclick = askRejectConfirm;
+  const rjy = document.getElementById('rejectYes');
+  if(rjy) rjy.onclick = doRejectApprove;
+  const rjn = document.getElementById('rejectNo');
+  if(rjn) rjn.onclick = cancelRejectConfirm;
+  const rjc = document.getElementById('rejectCommentField');
+  if(rjc){ rjc.oninput = (e)=>{ state.rejectComment = e.target.value; }; }
+  const pwfr = document.getElementById('pwFieldReject');
+  if(pwfr){ pwfr.oninput = (e)=>{ state.pwInput = e.target.value; }; pwfr.onkeydown = (e)=>{ if(e.key==='Enter' && e.ctrlKey) doRejectApprove(); }; }
 
   const ub = document.getElementById('unlockBtn');
   if(ub) ub.onclick = askUnlockConfirm;
@@ -1608,6 +1671,8 @@ function renderDailySummary(app){
     state.category = cat;
     state.confirmingSign = false;
     state.confirmingUnlock = false;
+    state.confirmingReject = false;
+    state.showSignOffActions = false;
     state.exportMsg = '';
     state.formError = '';
     state.form = { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' };
@@ -1917,6 +1982,8 @@ function renderWeeklySummary(app){
     state.category = cat;
     state.confirmingSign = false;
     state.confirmingUnlock = false;
+    state.confirmingReject = false;
+    state.showSignOffActions = false;
     state.exportMsg = '';
     state.formError = '';
     state.form = { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' };
@@ -2333,6 +2400,8 @@ function renderTrendTab(app){
     state.category = cat;
     state.confirmingSign = false;
     state.confirmingUnlock = false;
+    state.confirmingReject = false;
+    state.showSignOffActions = false;
     state.exportMsg = '';
     state.formError = '';
     state.form = { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' };
