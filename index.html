@@ -1633,9 +1633,12 @@ function render(){
         state.form.fullName = EMP_MAP[val];
       }
       state.form.ownTeam = TEAM_MAP[val] || '';
+      const caretPos = e.target.selectionStart;
       render();
-      const el = document.getElementById('f_idCode');
-      if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      setTimeout(()=>{
+        const el = document.getElementById('f_idCode');
+        if(el){ el.focus(); el.setSelectionRange(caretPos, caretPos); }
+      }, 0);
     };
     idCodeEl.onfocus = ()=>{ state.empSuggestOpen = true; render(); const el=document.getElementById('f_idCode'); if(el) el.focus(); };
   }
