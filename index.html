@@ -1627,20 +1627,37 @@ function render(){
   if(idCodeEl){
     idCodeEl.oninput = (e)=>{
       const val = e.target.value;
+      const caretPos = e.target.selectionStart;
       state.form.idCode = val;
       state.empSuggestOpen = true;
       if(EMP_MAP[val]){
         state.form.fullName = EMP_MAP[val];
       }
       state.form.ownTeam = TEAM_MAP[val] || '';
-      const caretPos = e.target.selectionStart;
       render();
-      setTimeout(()=>{
-        const el = document.getElementById('f_idCode');
-        if(el){ el.focus(); el.setSelectionRange(caretPos, caretPos); }
-      }, 0);
+      // Restore caret synchronously (same tick as render) so fast typing
+      // can never race with a deferred setTimeout and get the cursor
+      // reset to the start of the field (which previously caused newly
+      // typed digits to be inserted before existing ones, e.g. typing
+      // "56" would end up showing "65").
+      const el = document.getElementById('f_idCode');
+      if(el){ el.focus(); el.setSelectionRange(caretPos, caretPos); }
     };
-    idCodeEl.onfocus = ()=>{ state.empSuggestOpen = true; render(); const el=document.getElementById('f_idCode'); if(el) el.focus(); };
+    idCodeEl.onfocus = ()=>{
+      // Guard: our own oninput handler already sets empSuggestOpen=true and
+      // calls render() before programmatically re-focusing the field to
+      // restore the caret. Without this guard, that programmatic focus()
+      // would re-trigger this onfocus handler, which would render() again
+      // and call focus() a second time WITHOUT restoring the caret -
+      // silently snapping the cursor back to position 0 after every
+      // keystroke (this was the real cause of digits appearing reversed /
+      // the cursor jumping to the front of the field while typing).
+      if(state.empSuggestOpen) return;
+      state.empSuggestOpen = true;
+      render();
+      const el = document.getElementById('f_idCode');
+      if(el){ el.focus(); const p = el.value.length; el.setSelectionRange(p, p); }
+    };
   }
   document.querySelectorAll('.empSuggestItem').forEach(item=>{
     item.onmousedown = (e)=>{
