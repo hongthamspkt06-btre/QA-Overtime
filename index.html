@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#e9ebee;
+    --bg:#D5D8DC;
     --panel:#ffffff;
     --panel2:#f2f3f5;
     --border:#d9dce1;
@@ -23,30 +23,31 @@
     --red:#dc2626;
     --red-dim:#fbe1df;
     --steel:#2f6fed;
-    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --navy:#1B3A63;
+    --export-green:#1E8E5A;
+    --mono: inherit;
   }
-  *{box-sizing:border-box;}
-  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;margin:0;padding:0;}
+  *{box-sizing:border-box;font-family:inherit;}
+  html{background:#D5D8DC;}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Malgun Gothic",Arial,sans-serif;font-size:12px;margin:0;padding:0;}
   #app{max-width:1200px;margin:0 auto;padding:20px 18px 60px;}
 
-  .topbar{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:18px;}
-  .brand-eyebrow{font-size:11px;letter-spacing:.18em;color:var(--steel);font-weight:700;text-transform:uppercase;margin-bottom:4px;}
-  .brand-title{font-size:22px;font-weight:800;letter-spacing:.01em;}
-  .brand-sub{font-size:12px;color:var(--sub);margin-top:2px;}
+  .topbar{display:flex;align-items:flex-end;justify-content:flex-end;flex-wrap:wrap;gap:14px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:18px;}
+  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:-20px -18px 16px -18px;width:calc(100% + 36px);}
 
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .field{display:flex;flex-direction:column;gap:4px;}
-  .field label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);}
+  .field label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);}
   input[type=date], input[type=text], input[type=password], select{
     background:var(--panel2);border:1px solid var(--border);color:var(--text);
-    border-radius:6px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;
+    border-radius:6px;padding:8px 10px;font-size:12px;outline:none;font-family:inherit;
   }
   input[type=date]:focus, input[type=text]:focus, input[type=password]:focus, select:focus{border-color:var(--steel);background:#fff;}
 
   .btn{
     display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);
     background:var(--panel2);color:var(--text);border-radius:6px;padding:8px 14px;
-    font-size:12.5px;font-weight:600;cursor:pointer;letter-spacing:.02em;
+    font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.02em;
     transition:all .15s ease;white-space:nowrap;
   }
   .btn:hover{border-color:var(--steel);background:#e8edfc;}
@@ -58,38 +59,41 @@
   .btn-green:hover{filter:brightness(1.08);}
   .btn-danger{background:var(--red);border-color:var(--red);color:#fff;}
   .btn-danger:hover{filter:brightness(1.08);}
-  .btn-sm{padding:5px 9px;font-size:11.5px;}
+  .btn-sm{padding:5px 9px;font-size:13px;}
+  .btn-export{background:var(--export-green);border-color:var(--export-green);color:#fff;font-weight:700;font-size:13px;height:35.5px;padding:0 16px;}
+  .btn-export:hover{filter:brightness(1.08);}
 
-  .sync-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);font-family:var(--mono);}
+  .sync-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);font-family:var(--mono);}
   .dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
   .dot.syncing{background:var(--amber);animation:pulse 1s infinite;}
   .dot.err{background:var(--red);}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,24,32,.04);}
-  .panel-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:12px;}
+  .panel-title{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:12px;}
+  .panel-title-tc{text-transform:none;}
 
   .entry-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
   .entry-row .field{flex:1;min-width:130px;}
   .entry-row .field.grow2{flex:1.6;min-width:170px;}
   .entry-row .field.small{flex:0 0 110px;min-width:100px;}
 
-  .inline-msg{margin-top:10px;font-size:12.5px;padding:8px 12px;border-radius:6px;display:flex;align-items:flex-start;gap:8px;line-height:1.5;}
+  .inline-msg{margin-top:10px;font-size:12px;padding:8px 12px;border-radius:6px;display:flex;align-items:flex-start;gap:8px;line-height:1.5;}
   .inline-msg.error{background:var(--red-dim);color:var(--red);}
   .inline-msg.info{background:var(--amber-dim);color:var(--amber);}
   .inline-msg code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-family:var(--mono);}
 
-  .setup-banner{background:#fff7e6;border:1px solid #f0d19c;border-radius:10px;padding:16px 18px;margin-bottom:18px;font-size:13px;line-height:1.7;color:#7a4d09;}
+  .setup-banner{background:#fff7e6;border:1px solid #f0d19c;border-radius:10px;padding:16px 18px;margin-bottom:18px;font-size:12px;line-height:1.7;color:#7a4d09;}
   .setup-banner b{color:#5c3a06;}
   .setup-banner code{background:rgba(0,0,0,.06);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
 
-  table{width:100%;border-collapse:collapse;font-size:13px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
   .table-scroll{
     overflow:auto;max-height:min(46vh, 420px);
     -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
   }
   thead th{
-    text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
     color:var(--sub);border-bottom:1px solid var(--border);padding:9px 8px;font-weight:700;
     background:var(--panel2);position:sticky;top:0;z-index:5;
   }
@@ -100,35 +104,35 @@
   td.name{font-weight:600;}
   td.time{font-family:var(--mono);color:var(--steel);}
   td.by{color:var(--sub);font-size:12px;}
-  .empty-state{padding:36px 10px;text-align:center;color:var(--sub);font-size:13px;}
+  .empty-state{padding:36px 10px;text-align:center;color:var(--sub);font-size:12px;}
 
   .status-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.03em;}
   .status-pending{background:var(--amber-dim);color:var(--amber);}
   .status-approved{background:var(--green-dim);color:var(--green);}
   .status-rejected{background:var(--red-dim);color:var(--red);}
 
-  .approval-panel{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+  .approval-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
   .approval-left{display:flex;align-items:center;gap:14px;}
   .sig-stamp{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;}
   .sig-stamp img{height:42px;}
-  .sig-meta{font-size:11px;color:var(--sub);line-height:1.5;font-family:var(--mono);}
+  .sig-meta{font-size:12px;color:var(--sub);line-height:1.5;font-family:var(--mono);}
   .sig-meta b{color:var(--text);font-family:inherit;}
 
   .confirm-box{display:flex;align-items:center;gap:10px;background:var(--amber-dim);border:1px solid #f0d19c;border-radius:8px;padding:8px 12px;flex-wrap:wrap;}
-  .confirm-box span{font-size:12.5px;color:var(--amber);font-weight:600;}
+  .confirm-box span{font-size:12px;color:var(--amber);font-weight:600;}
   .confirm-box input[type=password]{width:130px;}
   .confirm-box.reject-box{background:var(--red-dim);border-color:#f3c6c2;flex-direction:column;align-items:stretch;gap:8px;}
   .confirm-box.reject-box span{color:var(--red);}
-  .confirm-box textarea{width:100%;min-height:56px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;color:var(--text);resize:vertical;}
+  .confirm-box textarea{width:100%;min-height:56px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);resize:vertical;}
   .reject-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .pw-error{font-size:11.5px;color:var(--red);font-weight:600;}
+  .pw-error{font-size:12px;color:var(--red);font-weight:600;}
 
-  .footer-note{font-size:11px;color:var(--sub);text-align:center;margin-top:20px;line-height:1.6;}
+  .footer-note{font-size:12px;color:var(--sub);text-align:center;margin-top:20px;line-height:1.6;}
 
   .tab-bar{display:flex;gap:6px;margin-bottom:18px;}
   .tab-btn{
     padding:9px 20px;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;
-    background:var(--panel2);color:var(--sub);font-size:13px;font-weight:700;letter-spacing:.03em;
+    background:var(--panel2);color:var(--sub);font-size:14px;font-weight:700;letter-spacing:.03em;
     cursor:pointer;text-transform:uppercase;
   }
   .tab-btn.active{background:var(--panel);color:var(--steel);border-color:var(--steel);position:relative;top:1px;}
@@ -141,19 +145,19 @@
     max-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
     box-shadow:0 6px 18px rgba(20,24,32,.12);
   }
-  .autocomplete-item{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f1f3;}
+  .autocomplete-item{padding:9px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid #f0f1f3;}
   .autocomplete-item:last-child{border-bottom:none;}
   .autocomplete-item:hover, .autocomplete-item.hl{background:var(--panel2);}
   .autocomplete-item b{color:var(--steel);}
-  .autocomplete-empty{padding:10px 12px;font-size:12.5px;color:var(--sub);}
-  .count-chip{font-family:var(--mono);font-size:11px;color:var(--sub);background:var(--panel2);border:1px solid var(--border);padding:3px 9px;border-radius:20px;}
+  .autocomplete-empty{padding:10px 12px;font-size:12px;color:var(--sub);}
+  .count-chip{font-family:var(--mono);font-size:12px;color:var(--sub);background:var(--panel2);border:1px solid var(--border);padding:3px 9px;border-radius:20px;}
 
-  .ds-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .ds-table{width:100%;border-collapse:collapse;font-size:12px;}
   .ds-table th, .ds-table td{border:1px solid var(--border);padding:7px 8px;text-align:center;vertical-align:middle;}
-  .ds-table thead th{background:var(--panel2);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--sub);font-weight:700;position:sticky;top:0;z-index:5;}
+  .ds-table thead th{background:var(--panel2);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--sub);font-weight:700;position:sticky;top:0;z-index:5;}
   .ds-table td.ds-left{text-align:left;}
   .ds-table td.ds-factory{font-weight:700;background:#f7f9fc;}
-  .ds-table .ds-input{width:100%;min-width:60px;border:1px solid transparent;background:transparent;text-align:center;font-size:12.5px;border-radius:4px;padding:4px 6px;}
+  .ds-table .ds-input{width:100%;min-width:60px;border:1px solid transparent;background:transparent;text-align:center;font-size:12px;border-radius:4px;padding:4px 6px;}
   .ds-table .ds-input:hover{border-color:var(--border);}
   .ds-table .ds-input:focus{border-color:var(--steel);background:#fff;}
   .ds-table tfoot td{background:var(--panel2);font-weight:700;}
@@ -168,20 +172,20 @@
 
   .modal-overlay{position:fixed;inset:0;background:rgba(20,24,32,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;}
   .modal-box{background:#fff;border-radius:12px;padding:22px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 10px 34px rgba(20,24,32,.25);}
-  .modal-box p{margin:0 0 18px;font-size:14px;color:var(--text);line-height:1.5;}
+  .modal-box p{margin:0 0 18px;font-size:12px;color:var(--text);line-height:1.5;}
   .modal-actions{display:flex;gap:10px;justify-content:center;}
   .modal-actions .btn{flex:1;justify-content:center;}
 
   .trend-lock{max-width:360px;margin:60px auto;text-align:center;}
-  .trend-lock .lock-icon{font-size:34px;margin-bottom:10px;}
-  .trend-lock h3{margin:0 0 6px;font-size:16px;}
-  .trend-lock p{color:var(--sub);font-size:12.5px;margin:0 0 16px;}
+  .trend-lock .lock-icon{font-size:12px;margin-bottom:10px;}
+  .trend-lock h3{margin:0 0 6px;font-size:12px;}
+  .trend-lock p{color:var(--sub);font-size:12px;margin:0 0 16px;}
   .trend-lock-row{display:flex;gap:8px;justify-content:center;}
   .trend-lock-row input{width:180px;}
   .trend-section{margin-bottom:22px;}
   .trend-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
-  .trend-section-title{font-size:14px;font-weight:800;letter-spacing:.02em;}
-  .trend-section-sub{font-size:11.5px;color:var(--sub);margin-top:2px;}
+  .trend-section-title{font-size:12px;font-weight:800;letter-spacing:.02em;}
+  .trend-section-sub{font-size:12px;color:var(--sub);margin-top:2px;}
   .gran-toggle{display:flex;gap:4px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:3px;}
   .gran-btn{border:none;background:transparent;color:var(--sub);font-size:12px;font-weight:700;padding:6px 14px;border-radius:6px;cursor:pointer;letter-spacing:.02em;}
   .gran-btn.active{background:var(--steel);color:#fff;}
@@ -189,20 +193,20 @@
   .trend-charts.single{grid-template-columns:1fr;}
   .trend-charts-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
   .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
-  .chart-card-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:2px;}
+  .chart-card-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:2px;}
   .chart-card-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
   .chart-card-filters{display:flex;gap:6px;flex-wrap:wrap;}
-  .chart-card-filters select, .chart-card-filters input[type=date]{font-size:11px;padding:5px 6px;min-width:0;}
-  .chart-card-legend{font-size:11px;color:var(--sub);margin-bottom:10px;display:flex;gap:14px;flex-wrap:wrap;}
+  .chart-card-filters select, .chart-card-filters input[type=date]{font-size:12px;padding:5px 6px;min-width:0;}
+  .chart-card-legend{font-size:12px;color:var(--sub);margin-bottom:10px;display:flex;gap:14px;flex-wrap:wrap;}
   .chart-card-legend span{display:inline-flex;align-items:center;gap:5px;}
   .legend-swatch{width:14px;height:0;border-top:2px dashed var(--red);display:inline-block;}
   .legend-swatch.avg{border-top-color:var(--steel);}
   .chart-wrap{position:relative;height:240px;}
-  .qa-detail-section-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--sub);font-weight:700;margin:12px 0 6px;}
+  .qa-detail-section-label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--sub);font-weight:700;margin:12px 0 6px;}
   .qa-detail-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
-  .qa-detail-table{border-collapse:collapse;font-size:11.5px;white-space:nowrap;width:100%;}
+  .qa-detail-table{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%;}
   .qa-detail-table th, .qa-detail-table td{padding:5px 9px;border-bottom:1px solid var(--border);border-right:1px solid #f2f3f5;text-align:right;}
-  .qa-detail-table thead th{background:var(--panel2);color:var(--sub);font-weight:700;font-size:10.5px;}
+  .qa-detail-table thead th{background:var(--panel2);color:var(--sub);font-weight:700;font-size:12px;}
   .qa-detail-table th:first-child, .qa-detail-table td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);font-weight:700;z-index:1;}
   .qa-detail-table thead th:first-child{background:var(--panel2);}
   .qa-detail-sum-col{font-weight:800;border-left:2px solid var(--border);background:var(--panel2);}
@@ -318,6 +322,10 @@ let state = {
   pwError: '',
   exporting: false,
   exportMsg: '',
+  // Cache of the last background-generated PDF (see pregeneratePdf()), keyed
+  // by a fingerprint of the data it was built from, so Export PDF can serve
+  // it instantly instead of rebuilding on click.
+  pdfCache: { key: null, pdfBytes: null, fileName: null, overflow: 0 },
   empSuggestOpen: false,
   dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '' },
   weeklySummary: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 5), staffByDate: {}, loading: true, syncing: false, syncError: '' },
@@ -435,6 +443,9 @@ async function loadData(showSyncDot){
     const result = await apiGet(storageDateKey());
     state.data = result && result.rows ? result : { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
     state.syncError = '';
+    // Warm the PDF cache for this date/category too (not just after edits),
+    // so switching tabs/dates also has Export PDF ready ahead of time.
+    pregeneratePdf();
   }catch(e){
     console.error(e);
     state.syncError = 'Sync failed: ' + e.message;
@@ -452,7 +463,7 @@ function startPolling(){
     else if(state.category === 'WeeklySummary') loadWeeklySummary(false);
     else if(state.category === 'Trend') { /* no auto-poll: trend data is cached and fetched on demand */ }
     else loadData(false);
-  }, 8000);
+  }, 2000); // Request list refresh interval: 2s so new entries from other users/tabs show up quickly
 }
 
 async function loadDailySummary(showSyncDot){
@@ -939,6 +950,11 @@ async function persist(newData){
     await apiSave(storageDateKey(), newData);
     state.data = newData;
     state.syncError = '';
+    // Background trigger: every time data actually changes (add/delete row,
+    // sign/unlock/reject), silently re-fill the template, recalc formulas and
+    // convert to PDF now, so the PDF is already sitting in cache and Export
+    // PDF just serves it instantly instead of rebuilding on click.
+    pregeneratePdf();
   }catch(e){
     console.error('Save error', e);
     state.formError = 'Could not save: ' + e.message + ' (check your internet connection or the backend URL setup)';
@@ -951,7 +967,6 @@ async function persist(newData){
 async function addRow(){
   state.formError = '';
   if(!state.form.fullName.trim()){ state.formError = 'Please select an Emp ID or enter a Full Name.'; render(); return; }
-  const latest = await fetchLatest();
   const newRow = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
     idCode: state.form.idCode.trim(),
@@ -964,9 +979,17 @@ async function addRow(){
     ownTeam: state.form.ownTeam.trim(),
     ts: new Date().toISOString()
   };
-  const updated = Object.assign({}, latest, { rows: (latest.rows||[]).concat([newRow]) });
+  // Optimistic update: show the new row in the Request list immediately
+  // (no waiting on the network) instead of only after the save round-trip
+  // completes; the save below then reconciles with the server in the
+  // background.
+  state.data = Object.assign({}, state.data, { rows: (state.data.rows||[]).concat([newRow]) });
   state.form = { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' };
   state.empSuggestOpen = false;
+  render();
+
+  const latest = await fetchLatest();
+  const updated = Object.assign({}, latest, { rows: (latest.rows||[]).filter(r=>r.id!==newRow.id).concat([newRow]) });
   await persist(updated);
 }
 
@@ -1068,28 +1091,6 @@ function setNumberCell(xml, ref, num, forcedStyleId){
   });
 }
 
-async function exportExcel(){
-  state.exporting = true; state.exportMsg = ''; render();
-  try{
-    const rows = (state.data.rows || []).slice(0, TEMPLATE_MAX_ROWS);
-    const overflow = (state.data.rows || []).length - rows.length;
-
-    const zip = await JSZip.loadAsync(b64ToUint8(TEMPLATE_B64));
-    let sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
-
-    // Widen column B (Emp/ID Code) so codes like "USV000026" are not clipped
-    sheetXml = sheetXml.replace(
-      /<col min="2" max="2" width="[\d.]+"/,
-      '<col min="2" max="2" width="14"'
-    );
-// Widen column C (Full Name) so Vietnamese names with diacritics are not clipped
-sheetXml = sheetXml.replace(
-  /<col min="3" max="3" width="[\d.]+"/,
-  '<col min="3" max="3" width="32"'
-);
-
-    // Date (J8)
-    sheetXml = setNumberCell(sheetXml, 'J8', excelDateSerial(state.date));
 // Lấy đúng style-index (định dạng giờ h:mm) từ dòng mẫu chuẩn STT 1 (E11/F11),
 // rồi ép áp dụng style này cho MỌI dòng, kể cả dòng vốn có định dạng sai sẵn trong template
 function getStyleId(xml, ref){
@@ -1097,27 +1098,8 @@ function getStyleId(xml, ref){
   const m = re.exec(xml);
   return m ? m[1] : null;
 }
-const styleIdE = getStyleId(sheetXml, 'E11');
-const styleIdF = getStyleId(sheetXml, 'F11');
 
-    // Data rows -> template rows 11..70
-    rows.forEach((r, i) => {
-      const rn = 11 + i;
-      sheetXml = setInlineStrCell(sheetXml, 'B'+rn, r.idCode || '');
-      const fromFrac = timeToExcelFraction(r.otFrom);
-      const toFrac = timeToExcelFraction(r.otTo);
-      if(fromFrac !== null) sheetXml = setNumberCell(sheetXml, 'E'+rn, fromFrac, styleIdE);
-      if(toFrac !== null) sheetXml = setNumberCell(sheetXml, 'F'+rn, toFrac, styleIdF);
-      sheetXml = setInlineStrCellStyled(sheetXml, 'H'+rn, r.requestedBy || '', '14');
-      // Remark: cỡ chữ cố định 10pt (style 51, đã thêm sẵn trong file mẫu ở trên).
-      sheetXml = setInlineStrCellStyled(sheetXml, 'J'+rn, r.remark || '', '51');
-    });
-    function remarkStyleId(text){
-      // Giữ lại hàm này để tương thích ngược nếu có chỗ khác gọi tới,
-      // nhưng Remark hiện luôn dùng style 51 (10pt) ở trên, không còn co giãn theo độ dài.
-      return '51';
-    }
-    function setInlineStrCellStyled(xml, ref, value, forcedStyleId){
+function setInlineStrCellStyled(xml, ref, value, forcedStyleId){
   return setCellXml(xml, ref, (attrs) => {
     let newAttrs = attrs || '';
     if(/\ss="\d+"/.test(newAttrs)){
@@ -1128,103 +1110,205 @@ const styleIdF = getStyleId(sheetXml, 'F11');
     return `<c r="${ref}"${newAttrs} t="inlineStr"><is><t>${escXml(value)}</t></is></c>`;
   });
 }
-// Công thức Total (G71) đã đúng sẵn trong file mẫu: SUM(G11:G70)
-// (không cần patch runtime nữa)
 
+/* Đóng băng (freeze) hàng 1..splitRow của sheet, để khi Google Sheets xuất
+   PDF nhiều trang, phần tiêu đề (Company/Form title, ngày, v.v. ở hàng
+   1-10) được LẶP LẠI ở đầu mỗi trang thay vì chỉ hiện ở trang 1. */
+function addFreezeHeaderRows(xml, splitRow){
+  const paneTag = `<pane ySplit="${splitRow}" topLeftCell="A${splitRow+1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${splitRow+1}" sqref="A${splitRow+1}"/>`;
+  const selfClosing = /<sheetView([^>]*)\/>/.exec(xml);
+  if(selfClosing) return xml.replace(selfClosing[0], `<sheetView${selfClosing[1]}>${paneTag}</sheetView>`);
+  const withChildren = /<sheetView([^>]*)>([\s\S]*?)<\/sheetView>/.exec(xml);
+  if(!withChildren) return xml; // cấu trúc template không như kỳ vọng -> bỏ qua, không đánh liều làm hỏng file
+  if(/<pane\s/.test(withChildren[2])) return xml; // đã freeze sẵn rồi, không thêm trùng
+  return xml.replace(withChildren[0], `<sheetView${withChildren[1]}>${paneTag}${withChildren[2]}</sheetView>`);
+}
 
-    // Worker tab: remove the Recheck (column G) formula entirely across all
-    // template rows. Staff tab keeps the original formula untouched.
-    if(state.category === 'Worker'){
-      for(let rn = 11; rn <= 70; rn++){
-        const reG = new RegExp('<c r="G' + rn + '"([^>]*)>.*?</c>');
-        sheetXml = sheetXml.replace(reG, (m, attrs) => `<c r="G${rn}"${attrs}/>`);
-      }
+/* Chuỗi định danh (fingerprint) mọi thứ ảnh hưởng tới nội dung PDF của
+   ngày/category hiện tại, để cache biết khi nào "còn mới" và khi nào "cũ". */
+function currentPdfFingerprint(){
+  const rows = state.data.rows || [];
+  const lastTs = rows.length ? rows[rows.length-1].ts : '';
+  return [state.category, state.date, rows.length, lastTs, state.data.approved?'A':'', state.data.rejected?'R':''].join('|');
+}
+
+/* Điền template, tính công thức và gọi Apps Script chuyển thành PDF; trả về
+   bytes chứ KHÔNG tự tải xuống. Dùng chung cho cả nút Export PDF (foreground)
+   lẫn trigger nền pregeneratePdf() (silent) để chỉ có một chỗ chứa logic này. */
+async function buildFilledPdfBytes(silent){
+  const rows = (state.data.rows || []).slice(0, TEMPLATE_MAX_ROWS);
+  const overflow = (state.data.rows || []).length - rows.length;
+
+  const zip = await JSZip.loadAsync(b64ToUint8(TEMPLATE_B64));
+  let sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+
+  // Widen column B (Emp/ID Code) so codes like "USV000026" are not clipped
+  sheetXml = sheetXml.replace(
+    /<col min="2" max="2" width="[\d.]+"/,
+    '<col min="2" max="2" width="14"'
+  );
+  // Widen column C (Full Name) so Vietnamese names with diacritics are not clipped
+  sheetXml = sheetXml.replace(
+    /<col min="3" max="3" width="[\d.]+"/,
+    '<col min="3" max="3" width="32"'
+  );
+
+  // Lặp lại tiêu đề (hàng 1-10) ở mọi trang PDF, kể cả trang 2 trở đi
+  sheetXml = addFreezeHeaderRows(sheetXml, 10);
+
+  // Date (J8)
+  sheetXml = setNumberCell(sheetXml, 'J8', excelDateSerial(state.date));
+  const styleIdE = getStyleId(sheetXml, 'E11');
+  const styleIdF = getStyleId(sheetXml, 'F11');
+
+  // Data rows -> template rows 11..70
+  rows.forEach((r, i) => {
+    const rn = 11 + i;
+    sheetXml = setInlineStrCell(sheetXml, 'B'+rn, r.idCode || '');
+    const fromFrac = timeToExcelFraction(r.otFrom);
+    const toFrac = timeToExcelFraction(r.otTo);
+    if(fromFrac !== null) sheetXml = setNumberCell(sheetXml, 'E'+rn, fromFrac, styleIdE);
+    if(toFrac !== null) sheetXml = setNumberCell(sheetXml, 'F'+rn, toFrac, styleIdF);
+    sheetXml = setInlineStrCellStyled(sheetXml, 'H'+rn, r.requestedBy || '', '14');
+    // Remark: cỡ chữ cố định 10pt (style 51, đã thêm sẵn trong file mẫu ở trên).
+    sheetXml = setInlineStrCellStyled(sheetXml, 'J'+rn, r.remark || '', '51');
+  });
+  // Công thức Total (G71) đã đúng sẵn trong file mẫu: SUM(G11:G70)
+  // (không cần patch runtime nữa)
+
+  // Worker tab: remove the Recheck (column G) formula entirely across all
+  // template rows. Staff tab keeps the original formula untouched.
+  if(state.category === 'Worker'){
+    for(let rn = 11; rn <= 70; rn++){
+      const reG = new RegExp('<c r="G' + rn + '"([^>]*)>.*?</c>');
+      sheetXml = sheetXml.replace(reG, (m, attrs) => `<c r="G${rn}"${attrs}/>`);
     }
+  }
 
-    // Signed caption text in I84 (cell value, separate from the floating signature image)
-    if(state.data.approved){
-      const signedText = 'Signed ' + fmtDateTime(state.data.approvedAt);
-      sheetXml = setInlineStrCell(sheetXml, 'I84', signedText);
-    }
+  // Signed caption text in I84 (cell value, separate from the floating signature image)
+  if(state.data.approved){
+    const signedText = 'Signed ' + fmtDateTime(state.data.approvedAt);
+    sheetXml = setInlineStrCell(sheetXml, 'I84', signedText);
+  }
 
-    zip.file('xl/worksheets/sheet1.xml', sheetXml);
+  zip.file('xl/worksheets/sheet1.xml', sheetXml);
 
-    // Increase row 83's height so the enlarged signature image fits without
-    // overlapping the "Signed ..." text on row 84
-    let sheetXml2 = await zip.file('xl/worksheets/sheet1.xml').async('string');
-    sheetXml2 = sheetXml2.replace(/<row r="83"([^>]*)ht="15"([^>]*)>/, '<row r="83"$1ht="44" customHeight="1"$2>');
-    zip.file('xl/worksheets/sheet1.xml', sheetXml2);
+  // Increase row 83's height so the enlarged signature image fits without
+  // overlapping the "Signed ..." text on row 84
+  let sheetXml2 = await zip.file('xl/worksheets/sheet1.xml').async('string');
+  sheetXml2 = sheetXml2.replace(/<row r="83"([^>]*)ht="15"([^>]*)>/, '<row r="83"$1ht="44" customHeight="1"$2>');
+  zip.file('xl/worksheets/sheet1.xml', sheetXml2);
 
-    // Force Excel to recalculate all formulas (C, D, G columns) automatically on open,
-    // instead of showing stale/blank cached formula results
-    let workbookXml = await zip.file('xl/workbook.xml').async('string');
-    const calcStart = workbookXml.indexOf('<calcPr');
-    if(calcStart >= 0){
-      const calcEnd = workbookXml.indexOf('/>', calcStart) + 2;
-      workbookXml = workbookXml.slice(0, calcStart) + '<calcPr calcId="162913" fullCalcOnLoad="1" forceFullCalc="1"/>' + workbookXml.slice(calcEnd);
-    } else {
-      workbookXml = workbookXml.replace('</workbook>', '<calcPr calcId="162913" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>');
-    }
-    zip.file('xl/workbook.xml', workbookXml);
+  // Force Excel to recalculate all formulas (C, D, G columns) automatically on open,
+  // instead of showing stale/blank cached formula results
+  let workbookXml = await zip.file('xl/workbook.xml').async('string');
+  const calcStart = workbookXml.indexOf('<calcPr');
+  if(calcStart >= 0){
+    const calcEnd = workbookXml.indexOf('/>', calcStart) + 2;
+    workbookXml = workbookXml.slice(0, calcStart) + '<calcPr calcId="162913" fullCalcOnLoad="1" forceFullCalc="1"/>' + workbookXml.slice(calcEnd);
+  } else {
+    workbookXml = workbookXml.replace('</workbook>', '<calcPr calcId="162913" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>');
+  }
+  zip.file('xl/workbook.xml', workbookXml);
 
-    // Signature image, only if signed off - placed just above I84 (row 83) so the
-    // "Signed ..." text in I84 stays visible underneath/beside it
-    if(state.data.approved){
-      const sigBytes = b64ToUint8(SIG_IMG.split(',')[1]);
-      zip.file('xl/media/image2.png', sigBytes);
+  // Signature image, only if signed off - placed just above I84 (row 83) so the
+  // "Signed ..." text in I84 stays visible underneath/beside it
+  if(state.data.approved){
+    const sigBytes = b64ToUint8(SIG_IMG.split(',')[1]);
+    zip.file('xl/media/image2.png', sigBytes);
 
-      let rels = await zip.file('xl/drawings/_rels/drawing1.xml.rels').async('string');
-      rels = rels.replace('</Relationships>',
-        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image2.png"/></Relationships>');
-      zip.file('xl/drawings/_rels/drawing1.xml.rels', rels);
+    let rels = await zip.file('xl/drawings/_rels/drawing1.xml.rels').async('string');
+    rels = rels.replace('</Relationships>',
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image2.png"/></Relationships>');
+    zip.file('xl/drawings/_rels/drawing1.xml.rels', rels);
 
-      let drawingXml = await zip.file('xl/drawings/drawing1.xml').async('string');
-      const anchor = '<xdr:oneCellAnchor>'
-        + '<xdr:from><xdr:col>8</xdr:col><xdr:colOff>15000</xdr:colOff><xdr:row>82</xdr:row><xdr:rowOff>4000</xdr:rowOff></xdr:from>'
-        + '<xdr:ext cx="990000" cy="540000"/>'
-        + '<xdr:pic>'
-        + '<xdr:nvPicPr><xdr:cNvPr id="99" name="ChuKyDienTu" descr="ChuKyDienTu"/>'
-        + '<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>'
-        + '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId2" cstate="print"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>'
-        + '<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="990000" cy="540000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>'
-        + '</xdr:pic><xdr:clientData/></xdr:oneCellAnchor>';
-      drawingXml = drawingXml.replace('</xdr:wsDr>', anchor + '</xdr:wsDr>');
-      zip.file('xl/drawings/drawing1.xml', drawingXml);
-    }
+    let drawingXml = await zip.file('xl/drawings/drawing1.xml').async('string');
+    const anchor = '<xdr:oneCellAnchor>'
+      + '<xdr:from><xdr:col>8</xdr:col><xdr:colOff>15000</xdr:colOff><xdr:row>82</xdr:row><xdr:rowOff>4000</xdr:rowOff></xdr:from>'
+      + '<xdr:ext cx="990000" cy="540000"/>'
+      + '<xdr:pic>'
+      + '<xdr:nvPicPr><xdr:cNvPr id="99" name="ChuKyDienTu" descr="ChuKyDienTu"/>'
+      + '<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>'
+      + '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId2" cstate="print"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>'
+      + '<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="990000" cy="540000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>'
+      + '</xdr:pic><xdr:clientData/></xdr:oneCellAnchor>';
+    drawingXml = drawingXml.replace('</xdr:wsDr>', anchor + '</xdr:wsDr>');
+    zip.file('xl/drawings/drawing1.xml', drawingXml);
+  }
 
-    // Build the filled xlsx in-memory (not downloaded directly) then send it to
-    // the Apps Script backend, which uploads it to Google Sheets (so formulas
-    // are actually calculated) and converts it to a locked, non-editable PDF.
+  // Build the filled xlsx in-memory (not downloaded directly) then send it to
+  // the Apps Script backend, which uploads it to Google Sheets (so formulas
+  // are actually calculated) and converts it to a locked, non-editable PDF.
+  if(!silent){
     state.exportMsg = 'Filling template, calculating formulas and generating PDF (may take a few seconds)...';
     render();
+  }
 
-    const outBase64 = await zip.generateAsync({ type: 'base64' });
+  const outBase64 = await zip.generateAsync({ type: 'base64' });
 
-    const pdfRes = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'exportPdf',
-        fileName: 'Overtime_Form_' + state.category + '_' + state.date + '.xlsx',
-        fileBase64: outBase64
-      })
-    });
-    if(!pdfRes.ok) throw new Error('HTTP ' + pdfRes.status);
-    const pdfResult = await pdfRes.json();
-    if(!pdfResult.success) throw new Error(pdfResult.error || 'PDF conversion failed on the server');
+  const pdfRes = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'exportPdf',
+      fileName: 'Overtime_Form_' + state.category + '_' + state.date + '.xlsx',
+      fileBase64: outBase64
+    })
+  });
+  if(!pdfRes.ok) throw new Error('HTTP ' + pdfRes.status);
+  const pdfResult = await pdfRes.json();
+  if(!pdfResult.success) throw new Error(pdfResult.error || 'PDF conversion failed on the server');
 
-    const pdfBytes = b64ToUint8(pdfResult.pdfBase64);
-    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+  return {
+    pdfBytes: b64ToUint8(pdfResult.pdfBase64),
+    fileName: 'Overtime_Form_' + state.category + '_' + state.date + '.pdf',
+    overflow
+  };
+}
+
+/* Trigger nền: chạy tự động ngay sau mỗi lần dữ liệu thay đổi (thêm/xóa
+   dòng, sign/unlock/reject) - đọc lại, điền sẵn template, tính công thức và
+   tạo PDF NGAY, lưu vào cache. Cùng cách làm với Line QA / QA Manpower
+   dashboard: tính trước ở nền, để khi bấm "Export PDF" là có sẵn, xuất liền,
+   không phải đợi vài giây. */
+async function pregeneratePdf(){
+  if(NOT_CONFIGURED) return;
+  if(state.category !== 'Staff' && state.category !== 'Worker') return;
+  const fp = currentPdfFingerprint();
+  if(state.pdfCache.key === fp) return; // đã có bản mới nhất trong cache rồi
+  try{
+    const built = await buildFilledPdfBytes(true);
+    state.pdfCache = { key: fp, pdfBytes: built.pdfBytes, fileName: built.fileName, overflow: built.overflow };
+  }catch(e){
+    console.error('Background PDF pre-generation failed (Export PDF will fall back to generating on click):', e);
+  }
+}
+
+async function exportExcel(){
+  state.exporting = true; state.exportMsg = ''; render();
+  try{
+    const fp = currentPdfFingerprint();
+    let built;
+    if(state.pdfCache.key === fp && state.pdfCache.pdfBytes){
+      // Đường tắt: PDF đã được điền sẵn, tính công thức và convert ở nền
+      // ngay sau lần thay đổi dữ liệu gần nhất -> xuất liền, không phải chờ.
+      built = state.pdfCache;
+    } else {
+      built = await buildFilledPdfBytes(false);
+      state.pdfCache = { key: fp, pdfBytes: built.pdfBytes, fileName: built.fileName, overflow: built.overflow };
+    }
+
+    const pdfBlob = new Blob([built.pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Overtime_Form_' + state.category + '_' + state.date + '.pdf';
+    a.download = built.fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
 
-    state.exportMsg = overflow > 0
-      ? `Exported as PDF. Note: this date has ${state.data.rows.length} entries but the template only fits ${TEMPLATE_MAX_ROWS} rows — the last ${overflow} were not included.`
+    state.exportMsg = built.overflow > 0
+      ? `Exported as PDF. Note: this date has ${state.data.rows.length} entries but the template only fits ${TEMPLATE_MAX_ROWS} rows — the last ${built.overflow} were not included.`
       : 'Exported successfully as a non-editable PDF in the official company format.';
   }catch(e){
     console.error(e);
@@ -1361,12 +1445,7 @@ function render(){
 
   if(NOT_CONFIGURED){
     app.innerHTML = `
-      <div class="topbar">
-        <div>
-          <div class="brand-eyebrow">Hansoll Textile &middot; Unisoll Vina &middot; QA</div>
-          <div class="brand-title">Overtime Request Form</div>
-        </div>
-      </div>
+      <div class="app-header">QA Overtime</div>
       <div class="setup-banner">
         <b>Setup needed:</b> this form is not connected to a shared backend yet.
         Edit the <code>APPS_SCRIPT_URL</code> constant near the top of the script.
@@ -1394,6 +1473,7 @@ function render(){
   }
 
   app.innerHTML = `
+    <div class="app-header">QA Overtime</div>
     <div class="tab-bar">
       <button class="tab-btn ${state.category==='Staff'?'active':''}" id="tabStaff">Staff</button>
       <button class="tab-btn ${state.category==='Worker'?'active':''}" id="tabWorker">Worker</button>
@@ -1402,11 +1482,6 @@ function render(){
       <button class="tab-btn ${state.category==='Trend'?'active':''}" id="tabTrend">Summary</button>
     </div>
     <div class="topbar">
-      <div>
-        <div class="brand-eyebrow">Hansoll Textile &middot; Unisoll Vina &middot; QA</div>
-        <div class="brand-title">Overtime Request Form &mdash; ${esc(state.category)}</div>
-        <div class="brand-sub">Shared data entry for multiple users &middot; Sign directly on the web</div>
-      </div>
       <div class="topbar-right">
         <div class="field">
           <label>Date</label>
@@ -1414,14 +1489,14 @@ function render(){
         </div>
         <div class="sync-pill"><span class="dot ${state.syncing?'syncing':(state.syncError?'err':'')}"></span>${syncLabel()}</div>
         <button class="btn" id="refreshBtn">&#8635; Refresh</button>
-        <button class="btn btn-steel" id="exportBtn" ${state.exporting?'disabled':''}>&#8681; ${state.exporting?'Exporting...':'Export PDF'}</button>
+        <button class="btn btn-export" id="exportBtn" ${state.exporting?'disabled':''}>&#8681; ${state.exporting?'Exporting...':'Export PDF'}</button>
       </div>
     </div>
 
     ${state.loading ? '<div class="empty-state">Loading data...</div>' : `
 
     <div class="panel">
-      <div class="panel-title">Add overtime request</div>
+      <div class="panel-title panel-title-tc">Add Overtime Request</div>
       <div class="entry-row">
         <div class="field grow2 autocomplete-wrap">
           <label>Emp ID</label>
@@ -1465,7 +1540,7 @@ function render(){
 
     <div class="panel" style="padding:0;overflow:hidden;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px;">
-        <div class="panel-title" style="margin-bottom:0;">Request list &mdash; ${fmtDate(state.date)}</div>
+        <div class="panel-title panel-title-tc" style="margin-bottom:0;">Request List &mdash; ${fmtDate(state.date)}</div>
         <span class="count-chip">${rows.length} ${rows.length===1?'person':'people'}</span>
       </div>
       ${rows.length === 0 ? '<div class="empty-state">No entries yet for this date. Add the first row above.</div>' : `
@@ -1505,6 +1580,8 @@ function render(){
     </div>
 
     <div class="panel approval-panel">
+      <div class="panel-title panel-title-tc">Sign Status</div>
+      <div class="approval-row">
       <div class="approval-left">
         ${approved ? `
           <span class="status-badge status-approved">&#10003; SIGNED OFF</span>
@@ -1552,11 +1629,12 @@ function render(){
                    </div>`
                 : state.showSignOffActions
                   ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">
-                       <button class="btn btn-green" id="signBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#10003; DONE</button>
-                       <button class="btn btn-danger" id="rejectBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#10007; REJECT</button>
+                       <button class="btn btn-green" id="signBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#10003; DONE</button>
+                       <button class="btn btn-danger" id="rejectBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#10007; REJECT</button>
                      </div>`
-                  : `<button class="btn btn-steel" id="signOffBtn" style="padding:12px 22px;font-size:14px;" ${rows.length===0?'disabled':''}>&#9998; SIGN OFF (Kim Joo Shik)</button>`)
+                  : `<button class="btn btn-steel" id="signOffBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#9998; SIGN OFF (Kim Joo Shik)</button>`)
         }
+      </div>
       </div>
     </div>
     `}
@@ -1757,6 +1835,7 @@ function renderDailySummary(app){
   const ds = state.dailySummary;
 
   app.innerHTML = `
+    <div class="app-header">QA Overtime</div>
     <div class="tab-bar">
       <button class="tab-btn" id="tabStaff">Staff</button>
       <button class="tab-btn" id="tabWorker">Worker</button>
@@ -1765,10 +1844,6 @@ function renderDailySummary(app){
       <button class="tab-btn" id="tabTrend">Trend</button>
     </div>
     <div class="topbar">
-      <div>
-        <div class="brand-eyebrow">Hansoll Textile &middot; Unisoll Vina &middot; QA</div>
-        <div class="brand-title">Daily Summary</div>
-      </div>
       <div class="topbar-right">
         <div class="field">
           <label>Date</label>
@@ -2072,6 +2147,7 @@ function renderWeeklySummary(app){
   const ws = state.weeklySummary;
 
   app.innerHTML = `
+    <div class="app-header">QA Overtime</div>
     <div class="tab-bar">
       <button class="tab-btn" id="tabStaff">Staff</button>
       <button class="tab-btn" id="tabWorker">Worker</button>
@@ -2080,10 +2156,6 @@ function renderWeeklySummary(app){
       <button class="tab-btn" id="tabTrend">Trend</button>
     </div>
     <div class="topbar">
-      <div>
-        <div class="brand-eyebrow">Hansoll Textile &middot; Unisoll Vina &middot; QA</div>
-        <div class="brand-title">Weekly Summary</div>
-      </div>
       <div class="topbar-right">
         <div class="field">
           <label>From (Mon)</label>
@@ -2095,7 +2167,7 @@ function renderWeeklySummary(app){
         </div>
         <div class="sync-pill"><span class="dot ${ws.syncing?'syncing':(ws.syncError?'err':'')}"></span>${ws.syncing?'Syncing...':(ws.syncError||'')}</div>
         <button class="btn" id="refreshBtn">&#8635; Refresh</button>
-        <button class="btn btn-steel" id="wsExportBtn">&#8681; Export PDF</button>
+        <button class="btn btn-export" id="wsExportBtn">&#8681; Export PDF</button>
       </div>
     </div>
 
@@ -2722,6 +2794,7 @@ function renderTrendTab(app){
     : null;
 
   app.innerHTML = `
+    <div class="app-header">QA Overtime</div>
     <div class="tab-bar">
       <button class="tab-btn" id="tabStaff">Staff</button>
       <button class="tab-btn" id="tabWorker">Worker</button>
@@ -2730,10 +2803,6 @@ function renderTrendTab(app){
       <button class="tab-btn active" id="tabTrend">Summary</button>
     </div>
     <div class="topbar">
-      <div>
-        <div class="brand-eyebrow">Hansoll Textile &middot; Unisoll Vina &middot; QA</div>
-        <div class="brand-title">Overtime Summary</div>
-      </div>
       <div class="topbar-right">
         <div class="sync-pill"><span class="dot ${tr.loading?'syncing':(tr.syncError?'err':'')}"></span>${tr.loading?'Loading...':(tr.syncError||'')}</div>
         <button class="btn" id="trendRefreshBtn" ${tr.loading?'disabled':''}>&#8635; Refresh</button>
@@ -3012,4 +3081,3 @@ render();
 loadData(false);
 startPolling();
 </script>
-
