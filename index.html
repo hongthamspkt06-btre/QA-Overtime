@@ -37,6 +37,8 @@
 
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .field{display:flex;flex-direction:column;gap:4px;}
+  .field-inline{display:flex;flex-direction:row;align-items:center;gap:8px;}
+  .field-inline label{white-space:nowrap;}
   .field label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);}
   input[type=date], input[type=text], input[type=password], select{
     background:var(--panel2);border:1px solid var(--border);color:var(--text);
@@ -937,18 +939,28 @@ function sumOrNull(arr){
   return vals.reduce((a, b) => a + b, 0);
 }
 
-async function fetchLatest(){
-  try{
-    const result = await apiGet(storageDateKey());
-    if(result && result.rows) return result;
-  }catch(e){ console.error(e); }
-  return state.data || { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
+async function apiDelta(date, action, payload){
+  const res = await fetchWithRetry(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ date, action, payload })
+  });
+  return await res.json();
 }
 
-async function persist(newData){
+/* Gửi 1 action delta (addRow/deleteRow/sign/unlock/reject) trong ĐÚNG 1 lần
+   POST — server tự đọc-sửa-ghi trong cùng request (xem backend calc.gs) —
+   thay vì cách cũ fetchLatest() (GET) rồi persist() (POST) tốn 2 lượt round
+   trip cho mỗi thao tác, vừa chậm gấp đôi vừa dễ bị polling 2s ghi đè lên
+   phần vừa optimistic-update trong lúc còn đang chờ round trip thứ 2. */
+async function applyDelta(action, payload){
   state.syncing = true; state.formError=''; render();
   try{
-    await apiSave(storageDateKey(), newData);
+    const result = await apiDelta(storageDateKey(), action, payload);
+    if(!result || result.success === false){
+      throw new Error((result && result.error) || 'Server rejected the request');
+    }
+    const newData = Object.assign({}, result);
+    delete newData.success;
     state.data = newData;
     state.syncError = '';
     // Background trigger: every time data actually changes (add/delete row,
@@ -989,15 +1001,14 @@ async function addRow(){
   state.empSuggestOpen = false;
   render();
 
-  const latest = await fetchLatest();
-  const updated = Object.assign({}, latest, { rows: (latest.rows||[]).filter(r=>r.id!==newRow.id).concat([newRow]) });
-  await persist(updated);
+  await applyDelta('addRow', { row: newRow });
 }
 
 async function deleteRow(id){
-  const latest = await fetchLatest();
-  const updated = Object.assign({}, latest, { rows: (latest.rows||[]).filter(r=>r.id!==id) });
-  await persist(updated);
+  // Optimistic update too, same reasoning as addRow above.
+  state.data = Object.assign({}, state.data, { rows: (state.data.rows||[]).filter(r=>r.id!==id) });
+  render();
+  await applyDelta('deleteRow', { id });
 }
 
 function askSignConfirm(){ state.confirmingSign = true; state.pwInput=''; state.pwError=''; render(); setTimeout(()=>{ const el=document.getElementById('pwField'); if(el) el.focus(); },0); }
@@ -1005,9 +1016,7 @@ function cancelSignConfirm(){ state.confirmingSign = false; state.pwInput=''; st
 async function doSignApprove(){
   if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
   state.confirmingSign = false; state.pwInput=''; state.pwError=''; state.showSignOffActions = false;
-  const latest = await fetchLatest();
-  const updated = Object.assign({}, latest, { approved:true, approvedAt: new Date().toISOString(), approvedBy: 'Kim Joo Shik' });
-  await persist(updated);
+  await applyDelta('sign', { approvedBy: 'Kim Joo Shik' });
 }
 
 function askUnlockConfirm(){ state.confirmingUnlock = true; state.pwInput=''; state.pwError=''; render(); setTimeout(()=>{ const el=document.getElementById('pwFieldUnlock'); if(el) el.focus(); },0); }
@@ -1015,9 +1024,7 @@ function cancelUnlockConfirm(){ state.confirmingUnlock = false; state.pwInput=''
 async function doUnlockApprove(){
   if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
   state.confirmingUnlock = false; state.pwInput=''; state.pwError=''; state.showSignOffActions = false;
-  const latest = await fetchLatest();
-  const updated = Object.assign({}, latest, { approved:false, approvedAt:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' });
-  await persist(updated);
+  await applyDelta('unlock', {});
 }
 
 function askRejectConfirm(){ state.confirmingReject = true; state.pwInput=''; state.pwError=''; state.rejectComment=''; render(); setTimeout(()=>{ const el=document.getElementById('rejectCommentField'); if(el) el.focus(); },0); }
@@ -1027,9 +1034,7 @@ async function doRejectApprove(){
   if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
   const comment = state.rejectComment.trim();
   state.confirmingReject = false; state.pwInput=''; state.pwError=''; state.rejectComment=''; state.showSignOffActions = false;
-  const latest = await fetchLatest();
-  const updated = Object.assign({}, latest, { approved:false, approvedAt:null, rejected:true, rejectedAt: new Date().toISOString(), rejectedBy: 'Kim Joo Shik', rejectComment: comment });
-  await persist(updated);
+  await applyDelta('reject', { rejectedBy: 'Kim Joo Shik', rejectComment: comment });
 }
 
 /* ---------- Excel export: fills the official company template ---------- */
@@ -1485,7 +1490,7 @@ function render(){
       </div>
     <div class="topbar">
       <div class="topbar-right">
-        <div class="field">
+        <div class="field field-inline">
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
@@ -1849,7 +1854,7 @@ function renderDailySummary(app){
       </div>
     <div class="topbar">
       <div class="topbar-right">
-        <div class="field">
+        <div class="field field-inline">
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
@@ -2163,11 +2168,11 @@ function renderWeeklySummary(app){
       </div>
     <div class="topbar">
       <div class="topbar-right">
-        <div class="field">
+        <div class="field field-inline">
           <label>From (Mon)</label>
           <input type="date" id="wsFrom" value="${ws.from}">
         </div>
-        <div class="field">
+        <div class="field field-inline">
           <label>To (Sat)</label>
           <input type="date" id="wsTo" value="${ws.to}" disabled>
         </div>
