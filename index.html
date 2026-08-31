@@ -33,7 +33,8 @@
   #app{max-width:1200px;margin:0 auto;padding:20px 18px 60px;}
 
   .topbar{display:flex;align-items:center;flex-wrap:wrap;gap:14px;}
-  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:flex-start;padding:0 20px;border-radius:12px;font-size:19px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px 0;}
+  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;border-radius:12px;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px 0;}
+  .app-header .btn{text-transform:none;letter-spacing:normal;}
 
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .field{display:flex;flex-direction:column;gap:4px;}
@@ -128,6 +129,9 @@
   .confirm-box textarea{width:100%;min-height:56px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);resize:vertical;}
   .reject-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .pw-error{font-size:12px;color:var(--red);font-weight:600;}
+  .cancel-link{font-size:12px;color:#9aa1ab;text-decoration:underline;cursor:pointer;font-weight:600;background:none;border:none;padding:6px 4px;}
+  .cancel-link:hover{color:#6b7280;}
+  .approval-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 
   .footer-note{font-size:12px;color:var(--sub);text-align:center;margin-top:20px;line-height:1.6;}
 
@@ -387,7 +391,14 @@ let pollTimer = null;
 
 function isFormFocused(){
   const el = document.activeElement;
-  return !!(el && el.id && el.id.indexOf('f_') === 0);
+  if(!el) return false;
+  // Ô Date/From/To (id không có tiền tố "f_": datePicker, wsFrom, wsTo) bị bỏ
+  // sót ở đây trước đây -> lúc người dùng bấm mở lịch chọn ngày, vòng polling
+  // 2 giây vẫn render() lại toàn trang, xoá luôn input đang mở, làm lịch vừa
+  // bật lên đã đóng ngay (giống hệt lỗi dropdown ở trên). Coi mọi input kiểu
+  // date đang focus cũng là "đang thao tác trong form" để bỏ qua re-render.
+  if(el.tagName === 'INPUT' && el.type === 'date') return true;
+  return !!(el.id && el.id.indexOf('f_') === 0);
 }
 
 /* Google Apps Script web apps occasionally answer a fresh request with a
@@ -487,7 +498,11 @@ function startPolling(){
 async function loadDailySummary(showSyncDot){
   if(NOT_CONFIGURED){ state.dailySummary.loading = false; render(); return; }
   const ds = state.dailySummary;
-  if(showSyncDot){ ds.syncing = true; render(); }
+  // Bỏ qua render() khi người dùng đang mở lịch chọn ngày (input Date đang
+  // focus) — tránh vòng polling 2s xoá mất DOM đang hiển thị lịch, làm lịch
+  // vừa bấm mở đã tự đóng ngay (giống lỗi dropdown Emp ID/select đã sửa).
+  const skipRender = !showSyncDot && isFormFocused();
+  if(showSyncDot){ ds.syncing = true; if(!skipRender) render(); }
   try{
     const d = state.date;
     const bulk = await apiGetBulk(['Staff::' + d, 'Worker::' + d, 'DailySummary::' + d]);
@@ -505,7 +520,7 @@ async function loadDailySummary(showSyncDot){
   ds.loading = false;
   ds.syncing = false;
   state.lastSync = new Date();
-  render();
+  if(!skipRender) render();
 }
 
 async function saveDailySummaryMeta(mutateFn){
@@ -541,7 +556,8 @@ function weeklyDayList(){
 async function loadWeeklySummary(showSyncDot){
   if(NOT_CONFIGURED){ state.weeklySummary.loading = false; render(); return; }
   const ws = state.weeklySummary;
-  if(showSyncDot){ ws.syncing = true; render(); }
+  const skipRender = !showSyncDot && isFormFocused();
+  if(showSyncDot){ ws.syncing = true; if(!skipRender) render(); }
   try{
     const days = weeklyDayList();
     const bulk = await apiGetBulk(days.map(d => 'Staff::' + d));
@@ -556,7 +572,7 @@ async function loadWeeklySummary(showSyncDot){
   ws.loading = false;
   ws.syncing = false;
   state.lastSync = new Date();
-  render();
+  if(!skipRender) render();
 }
 
 const WEEKDAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -1027,11 +1043,23 @@ async function deleteRow(id){
   await applyDelta('deleteRow', { id });
 }
 
-function askSignConfirm(){ state.confirmingSign = true; state.pwInput=''; state.pwError=''; render(); setTimeout(()=>{ const el=document.getElementById('pwField'); if(el) el.focus(); },0); }
-function cancelSignConfirm(){ state.confirmingSign = false; state.pwInput=''; state.pwError=''; render(); }
-async function doSignApprove(){
+// Step 1: click "Sign-Off" -> ask for password up front.
+function askSignConfirm(){ state.confirmingSign = true; state.showSignOffActions = false; state.confirmingReject = false; state.pwInput=''; state.pwError=''; render(); setTimeout(()=>{ const el=document.getElementById('pwField'); if(el) el.focus(); },0); }
+function cancelSignConfirm(){ state.confirmingSign = false; state.showSignOffActions = false; state.pwInput=''; state.pwError=''; render(); }
+// Step 2: password confirmed -> reveal Approved / Not Sign w/Comment / Cancel.
+function confirmSignPassword(){
   if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
-  state.confirmingSign = false; state.pwInput=''; state.pwError=''; state.showSignOffActions = false;
+  state.confirmingSign = false; state.pwInput=''; state.pwError=''; state.showSignOffActions = true;
+  render();
+}
+// Cancel from the Approved / Not Sign w/Comment choice -> back to idle.
+function cancelSignOffActions(){
+  state.showSignOffActions = false; state.confirmingReject = false; state.rejectComment='';
+  state.pwInput=''; state.pwError=''; render();
+}
+// Click "Approved" (password already verified) -> sign off directly.
+async function doSignApprove(){
+  state.showSignOffActions = false;
   await applyDelta('sign', { approvedBy: 'Kim Joo Shik' });
 }
 
@@ -1043,11 +1071,14 @@ async function doUnlockApprove(){
   await applyDelta('unlock', {});
 }
 
+// Click "Not Sign w/Comment" -> reveal the comment box (password already verified).
 function askRejectConfirm(){ state.confirmingReject = true; state.pwInput=''; state.pwError=''; state.rejectComment=''; render(); setTimeout(()=>{ const el=document.getElementById('rejectCommentField'); if(el) el.focus(); },0); }
-function cancelRejectConfirm(){ state.confirmingReject = false; state.pwInput=''; state.pwError=''; state.rejectComment=''; render(); }
+function cancelRejectConfirm(){
+  state.confirmingReject = false; state.showSignOffActions = false;
+  state.pwInput=''; state.pwError=''; state.rejectComment=''; render();
+}
 async function doRejectApprove(){
   if(!state.rejectComment.trim()){ state.pwError = 'Please enter a comment.'; render(); return; }
-  if(state.pwInput !== SIGN_PASSWORD){ state.pwError = 'Incorrect password.'; render(); return; }
   const comment = state.rejectComment.trim();
   state.confirmingReject = false; state.pwInput=''; state.pwError=''; state.rejectComment=''; state.showSignOffActions = false;
   await applyDelta('reject', { rejectedBy: 'Kim Joo Shik', rejectComment: comment });
@@ -1495,7 +1526,10 @@ function render(){
   }
 
   app.innerHTML = `
-    <div class="app-header">QA Overtime</div>
+    <div class="app-header">
+      <span>QA Overtime</span>
+      <button class="btn btn-export" id="exportBtn" ${state.exporting?'disabled':''}>&#8681; ${state.exporting?'Exporting...':'Export PDF'}</button>
+    </div>
     <div class="tab-bar">
       <div class="tab-bar-left">
       <button class="tab-btn ${state.category==='Staff'?'active':''}" id="tabStaff">Staff</button>
@@ -1512,7 +1546,6 @@ function render(){
         </div>
         <div class="sync-pill"><span class="dot ${state.syncing?'syncing':(state.syncError?'err':'')}"></span>${syncLabel()}</div>
         <button class="btn" id="refreshBtn">&#8635; Refresh</button>
-        <button class="btn btn-export" id="exportBtn" ${state.exporting?'disabled':''}>&#8681; ${state.exporting?'Exporting...':'Export PDF'}</button>
       </div>
     </div>
     </div>
@@ -1559,7 +1592,7 @@ function render(){
       </div>
       ${state.formError ? `<div class="inline-msg error">&#9888; ${esc(state.formError)}</div>` : ''}
       ${state.exportMsg ? `<div class="inline-msg ${state.exportMsg.indexOf('failed')>=0?'error':'info'}">${esc(state.exportMsg)}</div>` : ''}
-      ${locked ? `<div class="inline-msg info">This form has been ${approved ? 'signed off' : 'rejected'} &mdash; no further changes allowed. Click "Unlock / Edit" below to make changes.</div>` : ''}
+      ${locked ? `<div class="inline-msg info">This form has been ${approved ? 'signed off' : 'marked not signed'} &mdash; no further changes allowed. Click "Unlock" below to make changes.</div>` : ''}
     </div>
 
     <div class="panel" style="padding:0;overflow:hidden;">
@@ -1614,8 +1647,8 @@ function render(){
             <div class="sig-meta"><b>Kim Joo Shik</b><br>${fmtDateTime(d.approvedAt)}</div>
           </div>
         ` : rejected ? `
-          <span class="status-badge status-rejected">&#10007; REJECTED</span>
-          <div class="sig-meta"><b>Kim Joo Shik</b><br>${fmtDateTime(d.rejectedAt)}${d.rejectComment ? '<br>&ldquo;' + esc(d.rejectComment) + '&rdquo;' : ''}</div>
+          <span class="status-badge status-rejected">&#10007; NOT SIGNED</span>
+          ${d.rejectComment ? `<span class="sig-meta">&ldquo;${esc(d.rejectComment)}&rdquo;</span>` : ''}
         ` : `
           <span class="status-badge status-pending">&#9679; PENDING SIGN-OFF</span>
           <span style="font-size:12px;color:var(--sub);">QA Senior Manager: Kim Joo Shik</span>
@@ -1631,32 +1664,32 @@ function render(){
                    <button class="btn btn-sm" id="unlockNo">Cancel</button>
                    ${state.pwError ? `<span class="pw-error">${esc(state.pwError)}</span>` : ''}
                  </div>`
-              : `<button class="btn btn-sm" id="unlockBtn">&#128274; Unlock / Edit</button>`)
+              : `<button class="btn btn-sm" id="unlockBtn">&#128274; Unlock</button>`)
           : (state.confirmingSign
               ? `<div class="confirm-box">
-                   <span>Password to confirm Done:</span>
+                   <span>Password:</span>
                    <input type="password" id="pwField" value="${esc(state.pwInput)}" placeholder="Password">
                    <button class="btn btn-sm btn-steel" id="signYes">Confirm</button>
                    <button class="btn btn-sm" id="signNo">Cancel</button>
                    ${state.pwError ? `<span class="pw-error">${esc(state.pwError)}</span>` : ''}
                  </div>`
-              : state.confirmingReject
-                ? `<div class="confirm-box reject-box">
-                     <span>Reason for rejection:</span>
-                     <textarea id="rejectCommentField" placeholder="Enter comment...">${esc(state.rejectComment)}</textarea>
-                     <div class="reject-actions">
-                       <input type="password" id="pwFieldReject" value="${esc(state.pwInput)}" placeholder="Password">
-                       <button class="btn btn-sm btn-danger" id="rejectYes">Confirm Reject</button>
-                       <button class="btn btn-sm" id="rejectNo">Cancel</button>
-                     </div>
-                     ${state.pwError ? `<span class="pw-error">${esc(state.pwError)}</span>` : ''}
-                   </div>`
-                : state.showSignOffActions
-                  ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">
-                       <button class="btn btn-green" id="signBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#10003; DONE</button>
-                       <button class="btn btn-danger" id="rejectBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#10007; REJECT</button>
-                     </div>`
-                  : `<button class="btn btn-steel" id="signOffBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#9998; SIGN OFF (Kim Joo Shik)</button>`)
+              : state.showSignOffActions
+                ? (state.confirmingReject
+                    ? `<div class="confirm-box reject-box">
+                         <span>Comment:</span>
+                         <textarea id="rejectCommentField" placeholder="Enter comment...">${esc(state.rejectComment)}</textarea>
+                         <div class="reject-actions">
+                           <button class="btn btn-sm btn-steel" id="rejectYes">Submit</button>
+                           <a class="cancel-link" id="rejectCancelBtn">Cancel</a>
+                         </div>
+                         ${state.pwError ? `<span class="pw-error">${esc(state.pwError)}</span>` : ''}
+                       </div>`
+                    : `<div class="approval-actions">
+                         <button class="btn btn-green" id="approveBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>Approved</button>
+                         <button class="btn btn-danger" id="notSignBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>Not Sign w/Comment</button>
+                         <a class="cancel-link" id="cancelActionBtn">Cancel</a>
+                       </div>`)
+                : `<button class="btn btn-steel" id="signOffBtn" style="padding:12px 22px;font-size:13px;" ${rows.length===0?'disabled':''}>&#9998; Sign-Off</button>`)
         }
       </div>
       </div>
@@ -1821,27 +1854,28 @@ function render(){
   };
 
   const sob = document.getElementById('signOffBtn');
-  if(sob) sob.onclick = ()=>{ state.showSignOffActions = true; render(); };
+  if(sob) sob.onclick = askSignConfirm;
 
-  const sb = document.getElementById('signBtn');
-  if(sb) sb.onclick = askSignConfirm;
   const sy = document.getElementById('signYes');
-  if(sy) sy.onclick = doSignApprove;
+  if(sy) sy.onclick = confirmSignPassword;
   const sn = document.getElementById('signNo');
   if(sn) sn.onclick = cancelSignConfirm;
   const pwf = document.getElementById('pwField');
-  if(pwf){ pwf.oninput = (e)=>{ state.pwInput = e.target.value; }; pwf.onkeydown = (e)=>{ if(e.key==='Enter') doSignApprove(); }; }
+  if(pwf){ pwf.oninput = (e)=>{ state.pwInput = e.target.value; }; pwf.onkeydown = (e)=>{ if(e.key==='Enter') confirmSignPassword(); }; }
 
-  const rjb = document.getElementById('rejectBtn');
-  if(rjb) rjb.onclick = askRejectConfirm;
+  const apb = document.getElementById('approveBtn');
+  if(apb) apb.onclick = doSignApprove;
+  const nsb = document.getElementById('notSignBtn');
+  if(nsb) nsb.onclick = askRejectConfirm;
+  const cab = document.getElementById('cancelActionBtn');
+  if(cab) cab.onclick = cancelSignOffActions;
+
   const rjy = document.getElementById('rejectYes');
   if(rjy) rjy.onclick = doRejectApprove;
-  const rjn = document.getElementById('rejectNo');
-  if(rjn) rjn.onclick = cancelRejectConfirm;
+  const rjcb = document.getElementById('rejectCancelBtn');
+  if(rjcb) rjcb.onclick = cancelRejectConfirm;
   const rjc = document.getElementById('rejectCommentField');
   if(rjc){ rjc.oninput = (e)=>{ state.rejectComment = e.target.value; }; }
-  const pwfr = document.getElementById('pwFieldReject');
-  if(pwfr){ pwfr.oninput = (e)=>{ state.pwInput = e.target.value; }; pwfr.onkeydown = (e)=>{ if(e.key==='Enter' && e.ctrlKey) doRejectApprove(); }; }
 
   const ub = document.getElementById('unlockBtn');
   if(ub) ub.onclick = askUnlockConfirm;
@@ -2173,7 +2207,10 @@ function renderWeeklySummary(app){
   const ws = state.weeklySummary;
 
   app.innerHTML = `
-    <div class="app-header">QA Overtime</div>
+    <div class="app-header">
+      <span>QA Overtime</span>
+      <button class="btn btn-export" id="wsExportBtn">&#8681; Export PDF</button>
+    </div>
     <div class="tab-bar">
       <div class="tab-bar-left">
       <button class="tab-btn" id="tabStaff">Staff</button>
@@ -2194,7 +2231,6 @@ function renderWeeklySummary(app){
         </div>
         <div class="sync-pill"><span class="dot ${ws.syncing?'syncing':(ws.syncError?'err':'')}"></span>${ws.syncing?'Syncing...':(ws.syncError||'')}</div>
         <button class="btn" id="refreshBtn">&#8635; Refresh</button>
-        <button class="btn btn-export" id="wsExportBtn">&#8681; Export PDF</button>
       </div>
     </div>
     </div>
