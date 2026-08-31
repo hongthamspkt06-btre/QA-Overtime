@@ -33,7 +33,7 @@
   #app{max-width:1225px;margin:0 auto;padding:20px 18px 60px;}
 
   .topbar{display:flex;align-items:center;flex-wrap:wrap;gap:14px;}
-  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;border-radius:12px;font-size:19px;font-weight:400;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px 0;}
+  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;border-radius:12px;font-size:19px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px 0;}
   .app-header .btn{text-transform:none;letter-spacing:normal;}
 
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -1544,7 +1544,7 @@ function render(){
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
-        <button class="btn" id="refreshBtn">&#8635; Refresh</button>
+        <button class="btn btn-export" id="refreshBtn">&#8635; Refresh</button>
       </div>
     </div>
     </div>
@@ -1595,7 +1595,7 @@ function render(){
     </div>
 
     <div class="panel" style="padding:0;overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px;">
+      <div style="display:inline-flex;align-items:center;gap:10px;padding:14px 16px 6px;width:fit-content;max-width:100%;">
         <div class="panel-title panel-title-tc" style="margin-bottom:0;">Request List &mdash; ${fmtDate(state.date)}</div>
         <span class="count-chip">${rows.length} ${rows.length===1?'person':'people'}</span>
       </div>
@@ -1907,7 +1907,7 @@ function renderDailySummary(app){
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
-        <button class="btn" id="refreshBtn">&#8635; Refresh</button>
+        <button class="btn btn-export" id="refreshBtn">&#8635; Refresh</button>
         <button class="btn" id="dsExportBtn">&#8681; Xuất Excel</button>
       </div>
     </div>
@@ -2227,7 +2227,7 @@ function renderWeeklySummary(app){
           <label>To (Sat)</label>
           <input type="date" id="wsTo" value="${ws.to}" disabled>
         </div>
-        <button class="btn" id="refreshBtn">&#8635; Refresh</button>
+        <button class="btn btn-export" id="refreshBtn">&#8635; Refresh</button>
       </div>
     </div>
     </div>
@@ -2868,7 +2868,7 @@ function renderTrendTab(app){
       </div>
     <div class="topbar">
       <div class="topbar-right">
-        <button class="btn" id="trendRefreshBtn" ${tr.loading?'disabled':''}>&#8635; Refresh</button>
+        <button class="btn btn-export" id="trendRefreshBtn" ${tr.loading?'disabled':''}>&#8635; Refresh</button>
         <button class="btn btn-red btn-sm" id="trendLockBtn">&#128274; Lock</button>
       </div>
     </div>
