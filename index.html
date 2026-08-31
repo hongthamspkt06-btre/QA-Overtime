@@ -330,6 +330,13 @@ let state = {
   // it instantly instead of rebuilding on click.
   pdfCache: { key: null, pdfBytes: null, fileName: null, overflow: 0 },
   empSuggestOpen: false,
+  // Counts in-flight add/delete/sign/unlock/reject requests (see applyDelta
+  // below). While >0, loadData()'s background poll must not overwrite
+  // state.data with what it fetched — that response can easily be a snapshot
+  // taken BEFORE the in-flight mutation reached the server, which would
+  // briefly erase the optimistic row that was just added (it "flashes then
+  // disappears, then reappears once the mutation's own response lands").
+  pendingMutations: 0,
   dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '' },
   weeklySummary: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 5), staffByDate: {}, loading: true, syncing: false, syncError: '' },
   trend: (function(){
@@ -444,7 +451,15 @@ async function loadData(showSyncDot){
   if(showSyncDot){ state.syncing = true; if(!skipRender) render(); }
   try{
     const result = await apiGet(storageDateKey());
-    state.data = result && result.rows ? result : { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
+    // Don't let a background poll's response clobber state.data while an
+    // add/delete/sign/unlock/reject is still in flight (see pendingMutations
+    // above) — that response can be a stale snapshot taken before the
+    // mutation reached the server, which would erase the row we just
+    // optimistically added until the mutation's own response lands a moment
+    // later (the "appears, disappears, then reappears" flash).
+    if(state.pendingMutations === 0){
+      state.data = result && result.rows ? result : { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
+    }
     state.syncError = '';
     // Warm the PDF cache for this date/category too (not just after edits),
     // so switching tabs/dates also has Export PDF ready ahead of time.
@@ -953,7 +968,7 @@ async function apiDelta(date, action, payload){
    trip cho mỗi thao tác, vừa chậm gấp đôi vừa dễ bị polling 2s ghi đè lên
    phần vừa optimistic-update trong lúc còn đang chờ round trip thứ 2. */
 async function applyDelta(action, payload){
-  state.syncing = true; state.formError=''; render();
+  state.syncing = true; state.formError=''; state.pendingMutations++; render();
   try{
     const result = await apiDelta(storageDateKey(), action, payload);
     if(!result || result.success === false){
@@ -972,6 +987,7 @@ async function applyDelta(action, payload){
     console.error('Save error', e);
     state.formError = 'Could not save: ' + e.message + ' (check your internet connection or the backend URL setup)';
   }
+  state.pendingMutations = Math.max(0, state.pendingMutations - 1);
   state.syncing = false;
   state.lastSync = new Date();
   render();
@@ -3083,13 +3099,24 @@ function renderTrendTab(app){
 document.addEventListener('click', (e)=>{
   if(state.empSuggestOpen && !e.target.closest('.autocomplete-wrap')){
     state.empSuggestOpen = false;
-    render();
+    // Targeted DOM removal instead of a full render() here — render() would
+    // replace the ENTIRE #app innerHTML, which destroys and rebuilds every
+    // <select> too. Since this listener runs on ANY outside click, clicking
+    // a <select> (Factory/Requested by/Remark...) right after the Emp ID
+    // autocomplete was open would open that select's native dropdown and
+    // then immediately kill it via the innerHTML replacement — the dropdown
+    // flashed open then closed, forcing a second click. Removing just the
+    // suggestion list node leaves every other element (including whatever
+    // was just opened) completely untouched.
+    const list = document.getElementById('empSuggestList');
+    if(list) list.remove();
   }
 });
 document.addEventListener('touchend', (e)=>{
   if(state.empSuggestOpen && !e.target.closest('.autocomplete-wrap')){
     state.empSuggestOpen = false;
-    render();
+    const list = document.getElementById('empSuggestList');
+    if(list) list.remove();
   }
 });
 
