@@ -30,10 +30,10 @@
   *{box-sizing:border-box;font-family:inherit;}
   html{background:#D5D8DC;}
   body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Malgun Gothic",Arial,sans-serif;font-size:12px;margin:0;padding:0;}
-  #app{max-width:1200px;margin:0 auto;padding:20px 18px 60px;}
+  #app{max-width:1236px;margin:0 auto;padding:20px 18px 60px;}
 
   .topbar{display:flex;align-items:center;flex-wrap:wrap;gap:14px;}
-  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;border-radius:12px;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px 0;}
+  .app-header{background:var(--navy);color:#fff;height:56.7px;min-height:56.7px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 20px;border-radius:12px;font-size:18px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:0 0 18px 0;}
   .app-header .btn{text-transform:none;letter-spacing:normal;}
 
   .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -1540,11 +1540,11 @@ function render(){
       </div>
     <div class="topbar">
       <div class="topbar-right">
+        <div class="sync-pill"><span class="dot ${state.syncing?'syncing':(state.syncError?'err':'')}"></span>${syncLabel()}</div>
         <div class="field field-inline">
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
-        <div class="sync-pill"><span class="dot ${state.syncing?'syncing':(state.syncError?'err':'')}"></span>${syncLabel()}</div>
         <button class="btn" id="refreshBtn">&#8635; Refresh</button>
       </div>
     </div>
@@ -1904,11 +1904,11 @@ function renderDailySummary(app){
       </div>
     <div class="topbar">
       <div class="topbar-right">
+        <div class="sync-pill"><span class="dot ${ds.syncing?'syncing':(ds.syncError?'err':'')}"></span>${ds.syncing?'Syncing...':(ds.syncError||'')}</div>
         <div class="field field-inline">
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
-        <div class="sync-pill"><span class="dot ${ds.syncing?'syncing':(ds.syncError?'err':'')}"></span>${ds.syncing?'Syncing...':(ds.syncError||'')}</div>
         <button class="btn" id="refreshBtn">&#8635; Refresh</button>
         <button class="btn" id="dsExportBtn">&#8681; Xuất Excel</button>
       </div>
