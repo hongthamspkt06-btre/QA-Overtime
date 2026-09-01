@@ -168,6 +168,14 @@
   .ds-table .ds-input:hover{border-color:var(--border);}
   .ds-table .ds-input:focus{border-color:var(--steel);background:#fff;}
   .ds-table tfoot td{background:var(--panel2);font-weight:700;}
+
+  .req-table{border-collapse:collapse;}
+  .req-table thead th{
+    background:#dbe5f1;color:#17395e;text-transform:none;letter-spacing:0;
+    text-align:center;font-weight:700;border:1px solid #a9bcd4;padding:8px 8px;
+  }
+  .req-table tbody td{border:1px solid var(--border);text-align:center;}
+  .req-table td.name{text-align:left;}
   .ds-table tfoot select{font-size:12px;padding:4px 6px;}
   .ds-table tfoot .ds-note{width:100%;min-width:140px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;margin-top:4px;}
 
@@ -1601,7 +1609,7 @@ function render(){
       </div>
       ${rows.length === 0 ? '<div class="empty-state">No entries yet for this date. Add the first row above.</div>' : `
       <div class="table-scroll">
-      <table>
+      <table class="req-table">
         <thead><tr>
           <th style="width:36px;">No.</th>
           <th>Emp ID</th>
