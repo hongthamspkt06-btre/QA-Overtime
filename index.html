@@ -85,6 +85,7 @@
   .inline-msg.error{background:var(--red-dim);color:var(--red);}
   .inline-msg.info{background:var(--amber-dim);color:var(--amber);}
   .inline-msg code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-family:var(--mono);}
+  .sig-stamp-msg{margin-top:0;max-width:320px;}
 
   .setup-banner{background:#fff7e6;border:1px solid #f0d19c;border-radius:10px;padding:16px 18px;margin-bottom:18px;font-size:12px;line-height:1.7;color:#7a4d09;}
   .setup-banner b{color:#5c3a06;}
@@ -95,6 +96,7 @@
     overflow:auto;max-height:min(46vh, 420px);
     -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
   }
+  .req-scroll{max-height:min(41vh, 373px);}
   thead th{
     text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
     color:var(--sub);border-bottom:1px solid var(--border);padding:9px 8px;font-weight:700;
@@ -1599,7 +1601,6 @@ function render(){
       </div>
       ${state.formError ? `<div class="inline-msg error">&#9888; ${esc(state.formError)}</div>` : ''}
       ${state.exportMsg ? `<div class="inline-msg ${state.exportMsg.indexOf('failed')>=0?'error':'info'}">${esc(state.exportMsg)}</div>` : ''}
-      ${locked ? `<div class="inline-msg info">This form has been ${approved ? 'signed off' : 'marked not signed'} &mdash; no further changes allowed. Click "Unlock" below to make changes.</div>` : ''}
     </div>
 
     <div class="panel" style="padding:0;overflow:hidden;">
@@ -1608,7 +1609,7 @@ function render(){
         <span class="count-chip">${rows.length} ${rows.length===1?'person':'people'}</span>
       </div>
       ${rows.length === 0 ? '<div class="empty-state">No entries yet for this date. Add the first row above.</div>' : `
-      <div class="table-scroll">
+      <div class="table-scroll req-scroll">
       <table class="req-table">
         <thead><tr>
           <th style="width:36px;">No.</th>
@@ -1660,6 +1661,7 @@ function render(){
           <span class="status-badge status-pending">&#9679; PENDING SIGN-OFF</span>
           <span style="font-size:12px;color:var(--sub);">QA Senior Manager: Kim Joo Shik</span>
         `}
+        ${locked ? `<span class="inline-msg info sig-stamp-msg">This form has been ${approved ? 'signed off' : 'marked not signed'} &mdash; no further changes allowed. Click "Unlock" below to make changes.</span>` : ''}
       </div>
       <div>
         ${locked
