@@ -1328,22 +1328,47 @@ async function buildFilledPdfBytes(silent){
   };
 }
 
+/* Dedup: nhiều nơi có thể trigger pregeneratePdf() gần như cùng lúc (poll
+   2s, mutation vừa xong, chuyển tab...). Nếu không dedup, mỗi lần gọi lại
+   bắn 1 request build+convert+export PDF RIÊNG lên Apps Script dù cùng
+   fingerprint — vừa phí, vừa khiến các request xếp hàng chờ nhau (Apps
+   Script giới hạn số lượt thực thi đồng thời), kéo dài thời gian chờ thật
+   sự. pdfGenPromise giữ Promise của lượt build đang chạy dở, cho các lệnh
+   gọi sau (kể cả nút Export PDF bấm tay) JOIN vào thay vì bắn thêm request. */
+let pdfGenPromise = null;
+let pdfGenPromiseFp = null;
+
 /* Trigger nền: chạy tự động ngay sau mỗi lần dữ liệu thay đổi (thêm/xóa
    dòng, sign/unlock/reject) - đọc lại, điền sẵn template, tính công thức và
    tạo PDF NGAY, lưu vào cache. Cùng cách làm với Line QA / QA Manpower
    dashboard: tính trước ở nền, để khi bấm "Export PDF" là có sẵn, xuất liền,
-   không phải đợi vài giây. */
-async function pregeneratePdf(){
-  if(NOT_CONFIGURED) return;
-  if(state.category !== 'Staff' && state.category !== 'Worker') return;
+   không phải đợi vài giây. Trả về Promise để exportExcel() có thể JOIN vào
+   thay vì tự bắn thêm 1 request build riêng khi người dùng bấm nút ngay
+   lúc bản nền còn đang chạy dở. */
+function pregeneratePdf(){
+  if(NOT_CONFIGURED) return Promise.resolve();
+  if(state.category !== 'Staff' && state.category !== 'Worker') return Promise.resolve();
   const fp = currentPdfFingerprint();
-  if(state.pdfCache.key === fp) return; // đã có bản mới nhất trong cache rồi
-  try{
-    const built = await buildFilledPdfBytes(true);
-    state.pdfCache = { key: fp, pdfBytes: built.pdfBytes, fileName: built.fileName, overflow: built.overflow };
-  }catch(e){
-    console.error('Background PDF pre-generation failed (Export PDF will fall back to generating on click):', e);
-  }
+  if(state.pdfCache.key === fp) return Promise.resolve(); // đã có bản mới nhất trong cache rồi
+  if(pdfGenPromise && pdfGenPromiseFp === fp) return pdfGenPromise; // đang có 1 lượt build y hệt chạy dở -> join vào, không bắn thêm
+
+  pdfGenPromiseFp = fp;
+  pdfGenPromise = (async () => {
+    try{
+      const built = await buildFilledPdfBytes(true);
+      state.pdfCache = { key: fp, pdfBytes: built.pdfBytes, fileName: built.fileName, overflow: built.overflow };
+      // Cập nhật lại nút Export PDF (Preparing... -> Export PDF) ngay khi bản nền xong,
+      // kể cả khi không ai đang bấm gì cả.
+      render();
+    }catch(e){
+      console.error('Background PDF pre-generation failed (Export PDF will fall back to generating on click):', e);
+      throw e;
+    }finally{
+      pdfGenPromise = null;
+      pdfGenPromiseFp = null;
+    }
+  })();
+  return pdfGenPromise;
 }
 
 async function exportExcel(){
@@ -1356,8 +1381,16 @@ async function exportExcel(){
       // ngay sau lần thay đổi dữ liệu gần nhất -> xuất liền, không phải chờ.
       built = state.pdfCache;
     } else {
-      built = await buildFilledPdfBytes(false);
-      state.pdfCache = { key: fp, pdfBytes: built.pdfBytes, fileName: built.fileName, overflow: built.overflow };
+      // Chưa có sẵn trong cache — thay vì tự bắn thêm 1 request build RIÊNG
+      // (trùng việc với bản nền có thể đang chạy dở, xếp hàng làm chậm cả
+      // 2), JOIN vào đúng 1 pipeline pregeneratePdf() dùng chung cho mọi nơi.
+      state.exportMsg = 'Preparing PDF in the background — this only happens right after new data, subsequent exports are instant...';
+      render();
+      await pregeneratePdf();
+      built = state.pdfCache;
+      if(!built || !built.pdfBytes || state.pdfCache.key !== fp){
+        throw new Error('PDF preparation did not complete — please try again');
+      }
     }
 
     const pdfBlob = new Blob([built.pdfBytes], { type: 'application/pdf' });
