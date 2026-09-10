@@ -72,6 +72,9 @@
   .dot.err{background:var(--red);}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
+  .refresh-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .refresh-synced{font-size:10px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:3px;letter-spacing:.02em;white-space:nowrap;}
+
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,24,32,.04);}
   .panel-title{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:12px;}
   .panel-title-tc{text-transform:none;}
@@ -326,6 +329,11 @@ let state = {
   syncing: false,
   syncError: '',
   lastSync: null,
+  // Nut Refresh (thu cong, do nguoi dung bam) - tach rieng voi "syncing" (poll
+  // ngam) de nut mo di + hien "Synced" dung nhu yeu cau, khong bi anh huong
+  // boi cac lan poll tu dong 2s/lan.
+  refreshBusy: false,
+  refreshSynced: false,
   form: { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' },
   formError: '',
   confirmingSign: false,
@@ -351,8 +359,8 @@ let state = {
   // briefly erase the optimistic row that was just added (it "flashes then
   // disappears, then reappears once the mutation's own response lands").
   pendingMutations: 0,
-  dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '' },
-  weeklySummary: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 5), staffByDate: {}, loading: true, syncing: false, syncError: '' },
+  dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false },
+  weeklySummary: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 5), staffByDate: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false },
   trend: (function(){
     const t = todayStr();
     const y = Number(t.slice(0,4)), m = Number(t.slice(5,7));
@@ -399,15 +407,26 @@ function storageDateKey(){
 
 let pollTimer = null;
 
+/* Co bao mot o input date "dang duoc thao tac" (lich dang mo). Khong dua vao
+   document.activeElement nhu truoc nua vi tren nhieu trinh duyet/webview di
+   dong, luc lich ngay (native date picker) dang hien thi thi input lai KHONG
+   con la document.activeElement (trinh duyet coi nhu da "blur" ngam trong
+   luc hien picker native) -> isFormFocused() tra ve false ngay ca khi lich
+   dang mo, khien vong poll 2s van render() de xoa mat DOM, lam lich vua bam
+   mo da tu dong dong lien (dung nhu loi nguoi dung bao). Thay vao do, dat co
+   nay ngay tu luc pointerdown/touchstart tren o date (truoc khi trinh duyet
+   kip blur), va chi tat co khi nguoi dung bam ra ngoai moi o date (hoac khi
+   da chon xong ngay - xem cac handler onchange ben duoi). */
+let dateInputActive = false;
+function isDateInputEl(el){
+  return !!(el && el.tagName === 'INPUT' && el.type === 'date');
+}
+
 function isFormFocused(){
+  if(dateInputActive) return true;
   const el = document.activeElement;
   if(!el) return false;
-  // Ô Date/From/To (id không có tiền tố "f_": datePicker, wsFrom, wsTo) bị bỏ
-  // sót ở đây trước đây -> lúc người dùng bấm mở lịch chọn ngày, vòng polling
-  // 2 giây vẫn render() lại toàn trang, xoá luôn input đang mở, làm lịch vừa
-  // bật lên đã đóng ngay (giống hệt lỗi dropdown ở trên). Coi mọi input kiểu
-  // date đang focus cũng là "đang thao tác trong form" để bỏ qua re-render.
-  if(el.tagName === 'INPUT' && el.type === 'date') return true;
+  if(isDateInputEl(el)) return true;
   return !!(el.id && el.id.indexOf('f_') === 0);
 }
 
@@ -464,6 +483,33 @@ async function apiGetBulk(keys){
     body: JSON.stringify({ action: 'getBulk', keys })
   });
   return await res.json();
+}
+
+/* Bam nut Refresh (thu cong): nut mo di (disabled) trong it nhat 3 giay du
+   API tra ve nhanh hay cham, sau do hien "Synced" + dau tick xanh ben duoi
+   nut cho den lan bam Refresh tiep theo. `obj` la state / ds / ws / tr. */
+function runManualRefresh(obj, loadFn){
+  if(obj.refreshBusy) return;
+  obj.refreshBusy = true;
+  obj.refreshSynced = false;
+  render();
+  const minDelay = new Promise(res => setTimeout(res, 3000));
+  Promise.all([loadFn(), minDelay]).then(()=>{
+    obj.refreshBusy = false;
+    obj.refreshSynced = true;
+    render();
+  });
+}
+
+/* HTML cho nut Refresh kem trang thai mo di khi dang refresh va dong chu
+   "Synced" + tick xanh nho ben duoi sau khi refresh xong. */
+function refreshButtonHtml(id, obj, label){
+  label = label || 'Refresh';
+  return `
+    <div class="refresh-wrap">
+      <button class="btn btn-export" id="${id}" ${obj.refreshBusy?'disabled':''}>&#8635; ${obj.refreshBusy ? 'Refreshing...' : label}</button>
+      ${(!obj.refreshBusy && obj.refreshSynced) ? '<div class="refresh-synced">&#10003; Synced</div>' : ''}
+    </div>`;
 }
 
 async function loadData(showSyncDot){
@@ -1587,7 +1633,7 @@ function render(){
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
-        <button class="btn btn-export" id="refreshBtn">&#8635; Refresh</button>
+        ${refreshButtonHtml('refreshBtn', state)}
       </div>
     </div>
     </div>
@@ -1794,10 +1840,10 @@ function render(){
   if(tabTrend) tabTrend.onclick = ()=>switchTab('Trend');
 
   const dp = document.getElementById('datePicker');
-  if(dp) dp.onchange = (e)=>{ state.date = e.target.value; state.loading = true; state.confirmingSign=false; state.confirmingUnlock=false; state.confirmingReject=false; state.showSignOffActions=false; state.exportMsg=''; loadData(false); };
+  if(dp) dp.onchange = (e)=>{ dateInputActive = false; state.date = e.target.value; state.loading = true; state.confirmingSign=false; state.confirmingUnlock=false; state.confirmingReject=false; state.showSignOffActions=false; state.exportMsg=''; loadData(false); };
 
   const rb = document.getElementById('refreshBtn');
-  if(rb) rb.onclick = ()=>loadData(true);
+  if(rb) rb.onclick = ()=>runManualRefresh(state, ()=>loadData(true));
 
   const exb = document.getElementById('exportBtn');
   if(exb) exb.onclick = exportExcel;
@@ -1950,7 +1996,7 @@ function renderDailySummary(app){
           <label>Date</label>
           <input type="date" id="datePicker" value="${state.date}">
         </div>
-        <button class="btn btn-export" id="refreshBtn">&#8635; Refresh</button>
+        ${refreshButtonHtml('refreshBtn', ds)}
         <button class="btn" id="dsExportBtn">&#8681; Xuất Excel</button>
       </div>
     </div>
@@ -2001,10 +2047,10 @@ function renderDailySummary(app){
   if(tabTrend) tabTrend.onclick = ()=>switchTab('Trend');
 
   const dp = document.getElementById('datePicker');
-  if(dp) dp.onchange = (e)=>{ state.date = e.target.value; state.dailySummary.loading = true; loadDailySummary(false); };
+  if(dp) dp.onchange = (e)=>{ dateInputActive = false; state.date = e.target.value; state.dailySummary.loading = true; loadDailySummary(false); };
 
   const rb = document.getElementById('refreshBtn');
-  if(rb) rb.onclick = ()=>loadDailySummary(true);
+  if(rb) rb.onclick = ()=>runManualRefresh(ds, ()=>loadDailySummary(true));
 
   document.querySelectorAll('.ds-input[data-field]').forEach(inp => {
     inp.onchange = (e) => {
@@ -2270,7 +2316,7 @@ function renderWeeklySummary(app){
           <label>To (Sat)</label>
           <input type="date" id="wsTo" value="${ws.to}" disabled>
         </div>
-        <button class="btn btn-export" id="refreshBtn">&#8635; Refresh</button>
+        ${refreshButtonHtml('refreshBtn', ws)}
       </div>
     </div>
     </div>
@@ -2321,6 +2367,7 @@ function renderWeeklySummary(app){
 
   const fromEl = document.getElementById('wsFrom');
   if(fromEl) fromEl.onchange = (e) => {
+    dateInputActive = false;
     state.weeklySummary.from = e.target.value;
     state.weeklySummary.to = addDaysStr(e.target.value, 5);
     state.weeklySummary.loading = true;
@@ -2328,7 +2375,7 @@ function renderWeeklySummary(app){
   };
 
   const rb = document.getElementById('refreshBtn');
-  if(rb) rb.onclick = ()=>loadWeeklySummary(true);
+  if(rb) rb.onclick = ()=>runManualRefresh(ws, ()=>loadWeeklySummary(true));
 
   const exb = document.getElementById('wsExportBtn');
   if(exb) exb.onclick = exportWeeklySummaryPdf;
@@ -2911,7 +2958,6 @@ function renderTrendTab(app){
       </div>
     <div class="topbar">
       <div class="topbar-right">
-        <button class="btn btn-export" id="trendRefreshBtn" ${tr.loading?'disabled':''}>&#8635; Refresh</button>
         <button class="btn btn-red btn-sm" id="trendLockBtn">&#128274; Lock</button>
       </div>
     </div>
@@ -3045,12 +3091,6 @@ function renderTrendTab(app){
 
   wireTabBar();
 
-  const refreshBtn = document.getElementById('trendRefreshBtn');
-  if(refreshBtn) refreshBtn.onclick = ()=>{
-    const dates = trendAllNeededDates();
-    dates.forEach(d => { delete trendCache.Staff[d]; delete trendCache.Worker[d]; });
-    loadTrendData();
-  };
 
   const lockBtn = document.getElementById('trendLockBtn');
   if(lockBtn) lockBtn.onclick = ()=>{
@@ -3083,9 +3123,9 @@ function renderTrendTab(app){
   if(staffDetailNameSel) staffDetailNameSel.onchange = (e)=>{ tr.staffDetail.fullName = e.target.value || ''; render(); };
 
   const workerWeekFromSel = document.getElementById('workerWeekFromSel');
-  if(workerWeekFromSel) workerWeekFromSel.onchange = (e)=>{ if(e.target.value){ tr.workerWeek.from = e.target.value; loadTrendData(); } };
+  if(workerWeekFromSel) workerWeekFromSel.onchange = (e)=>{ if(e.target.value){ dateInputActive = false; tr.workerWeek.from = e.target.value; loadTrendData(); } };
   const workerWeekToSel = document.getElementById('workerWeekToSel');
-  if(workerWeekToSel) workerWeekToSel.onchange = (e)=>{ if(e.target.value){ tr.workerWeek.to = e.target.value; loadTrendData(); } };
+  if(workerWeekToSel) workerWeekToSel.onchange = (e)=>{ if(e.target.value){ dateInputActive = false; tr.workerWeek.to = e.target.value; loadTrendData(); } };
 
   const workerMonthYearSel = document.getElementById('workerMonthYearSel');
   if(workerMonthYearSel) workerMonthYearSel.onchange = (e)=>{ tr.workerMonth.year = Number(e.target.value); loadTrendData(); };
@@ -3194,6 +3234,17 @@ document.addEventListener('touchend', (e)=>{
     if(list) list.remove();
   }
 });
+
+/* Bat co dateInputActive NGAY luc pointerdown/touchstart (truoc khi trinh
+   duyet kip blur ngam do mo native date picker) khi nham vao 1 o input date
+   bat ky; tat co ngay khi nguoi dung bam ra ngoai moi o date - xem giai
+   thich chi tiet o dinh nghia isFormFocused() ben tren. */
+function handleDateInputPointer(e){
+  dateInputActive = isDateInputEl(e.target) || !!(e.target.closest && e.target.closest('input[type="date"]'));
+}
+document.addEventListener('pointerdown', handleDateInputPointer);
+document.addEventListener('touchstart', handleDateInputPointer);
+document.addEventListener('mousedown', handleDateInputPointer);
 
 render();
 loadData(false);
