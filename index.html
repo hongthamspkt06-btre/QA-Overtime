@@ -514,8 +514,14 @@ function refreshButtonHtml(id, obj, label){
 
 async function loadData(showSyncDot){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
-  const skipRender = !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock || state.confirmingReject);
-  if(showSyncDot){ state.syncing = true; if(!skipRender) render(); }
+  // shouldSkipRender() duoc GOI LAI ngay truoc moi lan render(), khong dung
+  // 1 gia tri "dong bang" tinh tu dau ham nhu truoc - vi ham nay await goi
+  // API mat 200-800ms; neu nguoi dung bam mo lich chon ngay DUNG LUC dang
+  // cho API tra ve, gia tri tinh san tu truoc se khong con dung (luc do lich
+  // CHUA mo), khien render() sau do vo tinh chay dung nhip va dong mat lich
+  // vua mo (loi "lich hien ra roi mat lien").
+  const shouldSkipRender = ()=> !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock || state.confirmingReject);
+  if(showSyncDot){ state.syncing = true; if(!shouldSkipRender()) render(); }
   try{
     const result = await apiGet(storageDateKey());
     // Don't let a background poll's response clobber state.data while an
@@ -538,7 +544,7 @@ async function loadData(showSyncDot){
   state.loading = false;
   state.syncing = false;
   state.lastSync = new Date();
-  if(!skipRender) render();
+  if(!shouldSkipRender()) render();
 }
 
 function startPolling(){
@@ -554,11 +560,12 @@ function startPolling(){
 async function loadDailySummary(showSyncDot){
   if(NOT_CONFIGURED){ state.dailySummary.loading = false; render(); return; }
   const ds = state.dailySummary;
-  // Bỏ qua render() khi người dùng đang mở lịch chọn ngày (input Date đang
-  // focus) — tránh vòng polling 2s xoá mất DOM đang hiển thị lịch, làm lịch
-  // vừa bấm mở đã tự đóng ngay (giống lỗi dropdown Emp ID/select đã sửa).
-  const skipRender = !showSyncDot && isFormFocused();
-  if(showSyncDot){ ds.syncing = true; if(!skipRender) render(); }
+  // shouldSkipRender() duoc GOI LAI ngay truoc moi lan render() (khong dung
+  // gia tri tinh san tu dau ham) - vi apiGetBulk() await mat vai tram ms, neu
+  // nguoi dung bam mo lich DUNG LUC dang cho ket qua thi gia tri cu se sai va
+  // lam lich vua mo bi dong mat ngay.
+  const shouldSkipRender = ()=> !showSyncDot && isFormFocused();
+  if(showSyncDot){ ds.syncing = true; if(!shouldSkipRender()) render(); }
   try{
     const d = state.date;
     const bulk = await apiGetBulk(['Staff::' + d, 'Worker::' + d, 'DailySummary::' + d]);
@@ -576,7 +583,7 @@ async function loadDailySummary(showSyncDot){
   ds.loading = false;
   ds.syncing = false;
   state.lastSync = new Date();
-  if(!skipRender) render();
+  if(!shouldSkipRender()) render();
 }
 
 async function saveDailySummaryMeta(mutateFn){
@@ -612,8 +619,10 @@ function weeklyDayList(){
 async function loadWeeklySummary(showSyncDot){
   if(NOT_CONFIGURED){ state.weeklySummary.loading = false; render(); return; }
   const ws = state.weeklySummary;
-  const skipRender = !showSyncDot && isFormFocused();
-  if(showSyncDot){ ws.syncing = true; if(!skipRender) render(); }
+  // Xem giai thich o loadData()/loadDailySummary() - tinh lai ngay truoc moi
+  // lan render() thay vi dung gia tri "dong bang" tu dau ham.
+  const shouldSkipRender = ()=> !showSyncDot && isFormFocused();
+  if(showSyncDot){ ws.syncing = true; if(!shouldSkipRender()) render(); }
   try{
     const days = weeklyDayList();
     const bulk = await apiGetBulk(days.map(d => 'Staff::' + d));
@@ -628,7 +637,7 @@ async function loadWeeklySummary(showSyncDot){
   ws.loading = false;
   ws.syncing = false;
   state.lastSync = new Date();
-  if(!skipRender) render();
+  if(!shouldSkipRender()) render();
 }
 
 const WEEKDAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat'];
