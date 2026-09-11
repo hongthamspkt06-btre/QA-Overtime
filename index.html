@@ -487,9 +487,14 @@ async function apiGetBulk(keys){
 
 /* Bam nut Refresh (thu cong): nut mo di (disabled) trong it nhat 3 giay du
    API tra ve nhanh hay cham, sau do hien "Synced" + dau tick xanh ben duoi
-   nut cho den lan bam Refresh tiep theo. `obj` la state / ds / ws / tr. */
+   nut trong 2 giay roi tu dong an di (khong con hien mai cho den lan bam
+   Refresh tiep theo nhu truoc). `obj` la state / ds / ws / tr. */
 function runManualRefresh(obj, loadFn){
   if(obj.refreshBusy) return;
+  // Neu dong "Synced" cua lan bam truoc dang cho de tu an (chua het 2s) ma
+  // nguoi dung bam Refresh lan nua ngay, huy bo dong dem cu de tranh no tu
+  // an mat dong "Synced" moi truoc thoi han.
+  if(obj.refreshSyncedTimer){ clearTimeout(obj.refreshSyncedTimer); obj.refreshSyncedTimer = null; }
   obj.refreshBusy = true;
   obj.refreshSynced = false;
   render();
@@ -498,6 +503,11 @@ function runManualRefresh(obj, loadFn){
     obj.refreshBusy = false;
     obj.refreshSynced = true;
     render();
+    obj.refreshSyncedTimer = setTimeout(()=>{
+      obj.refreshSynced = false;
+      obj.refreshSyncedTimer = null;
+      render();
+    }, 2000); // hien "Synced" 2 giay roi tu an, khong hien mai
   });
 }
 
