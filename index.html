@@ -427,6 +427,7 @@ function isFormFocused(){
   const el = document.activeElement;
   if(!el) return false;
   if(isDateInputEl(el)) return true;
+  if(el.classList && el.classList.contains('ds-input')) return true;
   return !!(el.id && el.id.indexOf('f_') === 0);
 }
 
