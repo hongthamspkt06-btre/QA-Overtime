@@ -2248,7 +2248,7 @@ function exportDailySummaryExcel(){
             otRow.ot,
             otRow.qty,
             t.total,
-            t.mergedReason !== null ? t.mergedReason : otRow.reason
+            otRow.reason
           ]);
           rowIdx++;
         });
@@ -2262,9 +2262,7 @@ function exportDailySummaryExcel(){
         merges.push({ s:{r:teamStartRow,c:3}, e:{r:teamStartRow+teamRowSpan-1,c:3} }); // Own Team
         merges.push({ s:{r:teamStartRow,c:5}, e:{r:teamStartRow+teamRowSpan-1,c:5} }); // PIC
         merges.push({ s:{r:teamStartRow,c:8}, e:{r:teamStartRow+teamRowSpan-1,c:8} }); // Total
-        if(t.mergedReason !== null){
-          merges.push({ s:{r:teamStartRow,c:9}, e:{r:teamStartRow+teamRowSpan-1,c:9} }); // Reason
-        }
+        // Reason column (9) is intentionally never merged — each row keeps its own value.
       }
     });
 
@@ -2286,8 +2284,8 @@ function exportDailySummaryExcel(){
   wsSheet['!cols'] = [{wch:14},{wch:12},{wch:12},{wch:14},{wch:14},{wch:14},{wch:8},{wch:6},{wch:8},{wch:28}];
   wsSheet['!rows'] = aoa.map(()=>({hpt:20}));
 
-  const leftCols = new Set([0,3,4,5,9]);
-  const thinBorder = { style:'thin', color:{ rgb:'FFD9DEE8' } };
+  // "All Borders" style (Excel default): solid black thin border on every cell.
+  const thinBorder = { style:'thin', color:{ rgb:'FF000000' } };
   const range = XLSX.utils.decode_range(wsSheet['!ref']);
   for(let r = range.s.r; r <= range.e.r; r++){
     for(let c = range.s.c; c <= range.e.c; c++){
@@ -2298,7 +2296,7 @@ function exportDailySummaryExcel(){
       wsSheet[ref].s = {
         font: { bold: isHeader || isTotal, color: isHeader ? { rgb:'FFFFFFFF' } : { rgb:'FF1A1A1A' } },
         fill: isHeader ? { patternType:'solid', fgColor:{ rgb:'FF2F6FED' } } : (isTotal ? { patternType:'solid', fgColor:{ rgb:'FFEAF0FF' } } : undefined),
-        alignment: { horizontal: (isHeader || isTotal) ? 'center' : (leftCols.has(c) ? 'left' : 'center'), vertical:'center', wrapText:true },
+        alignment: { horizontal:'center', vertical:'center', wrapText:true },
         border: { top:thinBorder, bottom:thinBorder, left:thinBorder, right:thinBorder }
       };
     }
