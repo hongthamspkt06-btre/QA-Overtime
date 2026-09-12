@@ -1297,7 +1297,7 @@ async function buildFilledPdfBytes(silent){
     const toFrac = timeToExcelFraction(r.otTo);
     if(fromFrac !== null) sheetXml = setNumberCell(sheetXml, 'E'+rn, fromFrac, styleIdE);
     if(toFrac !== null) sheetXml = setNumberCell(sheetXml, 'F'+rn, toFrac, styleIdF);
-    sheetXml = setInlineStrCellStyled(sheetXml, 'H'+rn, r.requestedBy || '', '14');
+    sheetXml = setInlineStrCellStyled(sheetXml, 'H'+rn, r.ownTeam || '', '14');
     // Remark: cỡ chữ cố định 10pt (style 51, đã thêm sẵn trong file mẫu ở trên).
     sheetXml = setInlineStrCellStyled(sheetXml, 'J'+rn, r.remark || '', '51');
   });
