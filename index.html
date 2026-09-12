@@ -359,7 +359,7 @@ let state = {
   // briefly erase the optimistic row that was just added (it "flashes then
   // disappears, then reappears once the mutation's own response lands").
   pendingMutations: 0,
-  dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false },
+  dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false, pendingMetaSaves: 0 },
   weeklySummary: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 5), staffByDate: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false },
   trend: (function(){
     const t = todayStr();
@@ -585,7 +585,14 @@ async function loadDailySummary(showSyncDot){
     const metaRes = bulk['DailySummary::' + d];
     ds.staffRows = (staffRes && staffRes.rows) ? staffRes.rows : [];
     ds.workerRows = (workerRes && workerRes.rows) ? workerRes.rows : [];
-    ds.meta = (metaRes && metaRes.meta) ? metaRes.meta : {};
+    // Bo qua ban meta vua fetch neu dang co 1 luot luu Major Fac OT/Max Fac
+    // OT/PIC chua xong (xem pendingMetaSaves trong saveDailySummaryMeta) -
+    // ban fetch nay co the la snapshot CU tu truoc khi luot luu do kip ghi
+    // len server, ghi de no se lam gia tri vua nhap "hien roi mat" tren man
+    // hinh du server da luu dung.
+    if(ds.pendingMetaSaves === 0){
+      ds.meta = (metaRes && metaRes.meta) ? metaRes.meta : {};
+    }
     ds.syncError = '';
   }catch(e){
     console.error(e);
@@ -599,7 +606,7 @@ async function loadDailySummary(showSyncDot){
 
 async function saveDailySummaryMeta(mutateFn){
   const ds = state.dailySummary;
-  ds.syncing = true; render();
+  ds.syncing = true; ds.pendingMetaSaves++; render();
   try{
     let latestMeta = {};
     try{
@@ -614,6 +621,7 @@ async function saveDailySummaryMeta(mutateFn){
     console.error('Save DailySummary meta error', e);
     ds.syncError = 'Could not save: ' + e.message;
   }
+  ds.pendingMetaSaves = Math.max(0, ds.pendingMetaSaves - 1);
   ds.syncing = false;
   state.lastSync = new Date();
   render();
