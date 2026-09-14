@@ -336,6 +336,11 @@ let state = {
   refreshSynced: false,
   form: { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' },
   formError: '',
+  // Chong bam nut "+ Add" nhieu lan lien tiep (double-tap tren tablet, bam
+  // lai vi tuong chua an) trong luc request truoc con dang gui -> day la
+  // nguyen nhan chinh khien 1 lan nhap tao ra 2-3 dong trung lap. Khi true,
+  // nut Add bi disable va addRow() se tu thoat som neu duoc goi lai.
+  addingRow: false,
   confirmingSign: false,
   confirmingUnlock: false,
   confirmingReject: false,
@@ -1067,8 +1072,14 @@ async function apiDelta(date, action, payload){
    thay vì cách cũ fetchLatest() (GET) rồi persist() (POST) tốn 2 lượt round
    trip cho mỗi thao tác, vừa chậm gấp đôi vừa dễ bị polling 2s ghi đè lên
    phần vừa optimistic-update trong lúc còn đang chờ round trip thứ 2. */
+/* Tra ve true/false de noi goi (vi du addRow) biet chac request co thanh
+   cong hay khong va rollback optimistic update tuong ung khi that bai -
+   truoc day ham nay khong tra ve gi, khien addRow() khong co cach nao biet
+   da that bai de xoa dong vua optimistic-insert, dan den nguoi dung bam lai
+   nut Add va tao ra dong trung lap tren man hinh. */
 async function applyDelta(action, payload){
   state.syncing = true; state.formError=''; state.pendingMutations++; render();
+  let ok = false;
   try{
     const result = await apiDelta(storageDateKey(), action, payload);
     if(!result || result.success === false){
@@ -1078,6 +1089,7 @@ async function applyDelta(action, payload){
     delete newData.success;
     state.data = newData;
     state.syncError = '';
+    ok = true;
     // Background trigger: every time data actually changes (add/delete row,
     // sign/unlock/reject), silently re-fill the template, recalc formulas and
     // convert to PDF now, so the PDF is already sitting in cache and Export
@@ -1091,9 +1103,14 @@ async function applyDelta(action, payload){
   state.syncing = false;
   state.lastSync = new Date();
   render();
+  return ok;
 }
 
 async function addRow(){
+  // Guard #1: neu 1 request addRow truoc do van dang bay (chua xong), bo
+  // qua het cac lan goi them - chan double-tap/double-click tren tablet va
+  // truong hop bam nhieu lan lien tuc vi tuong lan bam truoc chua an.
+  if(state.addingRow) return;
   state.formError = '';
   if(!state.form.fullName.trim()){ state.formError = 'Please select an Emp ID or enter a Full Name.'; render(); return; }
   const newRow = {
@@ -1108,6 +1125,10 @@ async function addRow(){
     ownTeam: state.form.ownTeam.trim(),
     ts: new Date().toISOString()
   };
+  const savedForm = state.form;
+  // Guard #2: khoa nut Add ngay lap tuc (render() ben duoi se disable nut
+  // qua state.addingRow) trong suot thoi gian cho server phan hoi.
+  state.addingRow = true;
   // Optimistic update: show the new row in the Request list immediately
   // (no waiting on the network) instead of only after the save round-trip
   // completes; the save below then reconciles with the server in the
@@ -1117,7 +1138,18 @@ async function addRow(){
   state.empSuggestOpen = false;
   render();
 
-  await applyDelta('addRow', { row: newRow });
+  const ok = await applyDelta('addRow', { row: newRow });
+  if(!ok){
+    // Rollback: xoa dong optimistic vua them va tra lai noi dung form, vi
+    // request that bai that su (server khong co dong nay). Truoc day dong
+    // nay bi bo lai tren man hinh du that bai, khien nguoi dung tuong chua
+    // luu va bam Add lai cho cung 1 nguoi -> tao ra 2-3 dong trung lap y het
+    // nhau (dung trieu chung dang gap).
+    state.data = Object.assign({}, state.data, { rows: (state.data.rows||[]).filter(r => r.id !== newRow.id) });
+    state.form = savedForm;
+  }
+  state.addingRow = false;
+  render();
 }
 
 async function deleteRow(id){
@@ -1704,7 +1736,7 @@ function render(){
           <label>Reason</label>
           <select id="f_remark" ${locked?'disabled':''}>${optionsHtml(REMARK_LIST, state.form.remark)}</select>
         </div>
-        <button class="btn btn-steel" id="addBtn" ${locked?'disabled':''}>+ Add</button>
+        <button class="btn btn-steel" id="addBtn" ${(locked||state.addingRow)?'disabled':''}>${state.addingRow?'Adding...':'+ Add'}</button>
       </div>
       ${state.formError ? `<div class="inline-msg error">&#9888; ${esc(state.formError)}</div>` : ''}
       ${state.exportMsg ? `<div class="inline-msg ${state.exportMsg.indexOf('failed')>=0?'error':'info'}">${esc(state.exportMsg)}</div>` : ''}
