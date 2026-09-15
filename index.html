@@ -1124,26 +1124,45 @@ async function apiDelta(date, action, payload){
    da that bai de xoa dong vua optimistic-insert, dan den nguoi dung bam lai
    nut Add va tao ra dong trung lap tren man hinh. */
 async function applyDelta(action, payload){
+  // Chup lai key (category+date) TRUOC khi goi mang - giai thich chi tiet
+  // xem trong loadData() o tren, ap dung y het logic o day: day chinh la
+  // cho bi sot o lan sua truoc, khien tab Worker van con hien nham du lieu
+  // Staff (hoac nguoc lai) MOI KHI nguoi dung Add/Delete/Sign/Unlock/Reject
+  // tren 1 tab roi doi tab TRUOC KHI request nay kip tra loi - luc do
+  // "state.data = newData" (dong cu) se ghi de len dung du lieu tab moi da
+  // duoc loadData() nap dung truoc do.
+  const requestedKey = storageDateKey();
   state.syncing = true; state.formError=''; state.pendingMutations++; render();
   let ok = false;
   try{
-    const result = await apiDelta(storageDateKey(), action, payload);
+    const result = await apiDelta(requestedKey, action, payload);
     if(!result || result.success === false){
       throw new Error((result && result.error) || 'Server rejected the request');
     }
-    const newData = Object.assign({}, result);
-    delete newData.success;
-    state.data = newData;
-    state.syncError = '';
+    // Server da luu thanh cong cho dung tab/ngay luc goi (requestedKey), nen
+    // van tinh la "ok" du sau do nguoi dung co the da doi sang tab khac.
     ok = true;
-    // Background trigger: every time data actually changes (add/delete row,
-    // sign/unlock/reject), silently re-fill the template, recalc formulas and
-    // convert to PDF now, so the PDF is already sitting in cache and Export
-    // PDF just serves it instantly instead of rebuilding on click.
-    pregeneratePdf();
+    state.syncError = '';
+    // CHI ghi de state.data (va lam moi PDF cache) neu tab/ngay hien tai
+    // VAN CON khop voi luc goi request nay. Neu khong khop (da doi tab
+    // trong luc cho) - bo qua, KHONG dung rollback vi optimistic row cua
+    // tab cu da bi loadData() cua tab moi thay the hoan toan roi, ghi de
+    // them o day chi lam sai du lieu tab dang xem.
+    if(requestedKey === storageDateKey()){
+      const newData = Object.assign({}, result);
+      delete newData.success;
+      state.data = newData;
+      // Background trigger: every time data actually changes (add/delete row,
+      // sign/unlock/reject), silently re-fill the template, recalc formulas and
+      // convert to PDF now, so the PDF is already sitting in cache and Export
+      // PDF just serves it instantly instead of rebuilding on click.
+      pregeneratePdf();
+    }
   }catch(e){
     console.error('Save error', e);
-    state.formError = 'Could not save: ' + e.message + ' (check your internet connection or the backend URL setup)';
+    if(requestedKey === storageDateKey()){
+      state.formError = 'Could not save: ' + e.message + ' (check your internet connection or the backend URL setup)';
+    }
   }
   state.pendingMutations = Math.max(0, state.pendingMutations - 1);
   state.syncing = false;
