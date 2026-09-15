@@ -556,6 +556,12 @@ function refreshButtonHtml(id, obj, label){
 
 async function loadData(showSyncDot){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
+  // Chup lai key (category+date) NGAY LUC bat dau request nay - dung de doi
+  // chieu lai sau khi await xong (xem giai thich ben duoi). storageDateKey()
+  // doc state.category/state.date TAI THOI DIEM goi, nen neu nguoi dung
+  // chuyen tab (Staff <-> Worker) hoac doi ngay trong luc request nay con
+  // dang bay, gia tri storageDateKey() se khac di.
+  const requestedKey = storageDateKey();
   // shouldSkipRender() duoc GOI LAI ngay truoc moi lan render(), khong dung
   // 1 gia tri "dong bang" tinh tu dau ham nhu truoc - vi ham nay await goi
   // API mat 200-800ms; neu nguoi dung bam mo lich chon ngay DUNG LUC dang
@@ -565,27 +571,40 @@ async function loadData(showSyncDot){
   const shouldSkipRender = ()=> !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock || state.confirmingReject);
   if(showSyncDot){ state.syncing = true; if(!shouldSkipRender()) render(); }
   try{
-    const result = await apiGet(storageDateKey());
-    // Don't let a background poll's response clobber state.data while an
-    // add/delete/sign/unlock/reject is still in flight (see pendingMutations
-    // above) — that response can be a stale snapshot taken before the
-    // mutation reached the server, which would erase the row we just
-    // optimistically added until the mutation's own response lands a moment
-    // later (the "appears, disappears, then reappears" flash).
-    if(state.pendingMutations === 0){
+    const result = await apiGet(requestedKey);
+    // Chi ap dung ket qua neu category/date HIEN TAI van con khop voi key da
+    // yeu cau luc bat dau (requestedKey). Truong hop can chan: nguoi dung
+    // dang o tab Staff, vong poll 2s cu goi loadData() cho "Staff" nhung bi
+    // cham (mang chap chon / phai retry vi bi redirect POST->GET o cac call
+    // khac) - trong luc do nguoi dung bam qua tab Worker, kich hoat 1
+    // loadData() moi cho "Worker" va nhan ket qua VE TRUOC. Sau do request
+    // "Staff" cu moi tra ve va neu khong co doi chieu nay, no se ghi de
+    // state.data bang du lieu Staff trong khi man hinh dang o tab Worker ->
+    // dung nguyen nhan gay hien tuong "nhap nhay qua lai giua gia tri Staff
+    // va Worker" nguoi dung gap phai.
+    if(requestedKey === storageDateKey() && state.pendingMutations === 0){
       state.data = result && result.rows ? result : { rows: [], approved:false, approvedAt:null, approvedBy:null, rejected:false, rejectedAt:null, rejectedBy:null, rejectComment:'' };
     }
     state.syncError = '';
     // Warm the PDF cache for this date/category too (not just after edits),
     // so switching tabs/dates also has Export PDF ready ahead of time.
-    pregeneratePdf();
+    // Cung phai chan boi cung dieu kien tren, khong thi PDF cache se bi nap
+    // nham du lieu cua tab/ngay cu.
+    if(requestedKey === storageDateKey()) pregeneratePdf();
   }catch(e){
     console.error(e);
-    state.syncError = 'Sync failed: ' + e.message;
+    if(requestedKey === storageDateKey()) state.syncError = 'Sync failed: ' + e.message;
   }
-  state.loading = false;
-  state.syncing = false;
-  state.lastSync = new Date();
+  // Cung chi cap nhat cac co trang thai nay khi request van con "khop" voi
+  // tab/ngay hien tai - neu khong, day la 1 request cu da lac tab (xem giai
+  // thich o tren) va khong duoc phep tat co "loading"/"syncing" cua tab MOI
+  // (dang co request rieng cua no dang chay) truoc khi request rieng do kip
+  // xong, keo theo hien tuong loading tat som/nhap nhay.
+  if(requestedKey === storageDateKey()){
+    state.loading = false;
+    state.syncing = false;
+    state.lastSync = new Date();
+  }
   if(!shouldSkipRender()) render();
 }
 
