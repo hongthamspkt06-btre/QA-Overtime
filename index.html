@@ -466,6 +466,30 @@ async function fetchWithRetry(url, options, attempts){
   throw lastErr;
 }
 
+/* Google Apps Script web app doi khi tra ve redirect 302 (chuyen sang
+   script.googleusercontent.com) cho request POST toi URL /exec. Theo dung
+   chuan Fetch API, khi gap redirect 301/302/303 tren MOT REQUEST CO METHOD
+   LA POST, trinh duyet TU DONG doi method thanh GET va XOA SACH body - day
+   la nguyen nhan chinh xac cua loi "Missing date query param": action va
+   payload (nam trong POST body) bi mat tren duong di, server chi con nhan
+   duoc 1 GET rong nen roi vao nhanh doGet() thay vi doPost(), va doGet()
+   khong biet gi ve action addRow/deleteRow/sign/... - chi bao loi thieu date.
+   Trieu chung: doc du lieu (GET) luon on nhung ghi du lieu (Add/Delete/Sign)
+   thi luc duoc luc khong, tuy Google co quyet dinh redirect hay khong.
+
+   Fix: gan CUNG 1 noi dung body vao query string (?payload=...) cho moi
+   request MUTATE nho gon (delta add/delete/sign/unlock/reject, va luu meta
+   DailySummary) - query string luon SONG SONG voi POST body nen KHONG bi
+   redirect xoa mat nhu body. Neu POST toi thang doPost() nhu binh thuong,
+   phan payload= tren URL don gian bi bo qua, khong anh huong gi. Neu bi ha
+   cap thanh GET, doGet() se tu doc duoc payload= tu URL va xu ly y het nhu
+   doPost() (xem doGet() da duoc cap nhat trong Code.gs). KHONG ap dung cho
+   exportPdf vi file base64 qua lon, khong the nhet vao URL. */
+function withPayloadFallback_(url, bodyObj){
+  const q = 'payload=' + encodeURIComponent(JSON.stringify(bodyObj));
+  return url + (url.indexOf('?') === -1 ? '?' : '&') + q;
+}
+
 async function apiGet(date){
   const url = APPS_SCRIPT_URL + '?date=' + encodeURIComponent(date) + '&_=' + Date.now();
   const res = await fetchWithRetry(url, { method: 'GET' });
@@ -473,9 +497,10 @@ async function apiGet(date){
 }
 
 async function apiSave(date, data){
-  const res = await fetchWithRetry(APPS_SCRIPT_URL, {
+  const body = { date, data };
+  const res = await fetchWithRetry(withPayloadFallback_(APPS_SCRIPT_URL, body), {
     method: 'POST',
-    body: JSON.stringify({ date, data })
+    body: JSON.stringify(body)
   });
   return await res.json();
 }
@@ -484,9 +509,10 @@ async function apiSave(date, data){
    apiGet() rieng cho tung ngay). Tra ve map { key: {rows:[...]} }. */
 async function apiGetBulk(keys){
   if(!keys.length) return {};
-  const res = await fetchWithRetry(APPS_SCRIPT_URL, {
+  const body = { action: 'getBulk', keys };
+  const res = await fetchWithRetry(withPayloadFallback_(APPS_SCRIPT_URL, body), {
     method: 'POST',
-    body: JSON.stringify({ action: 'getBulk', keys })
+    body: JSON.stringify(body)
   });
   return await res.json();
 }
@@ -1060,9 +1086,10 @@ function sumOrNull(arr){
 }
 
 async function apiDelta(date, action, payload){
-  const res = await fetchWithRetry(APPS_SCRIPT_URL, {
+  const body = { date, action, payload };
+  const res = await fetchWithRetry(withPayloadFallback_(APPS_SCRIPT_URL, body), {
     method: 'POST',
-    body: JSON.stringify({ date, action, payload })
+    body: JSON.stringify(body)
   });
   return await res.json();
 }
