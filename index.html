@@ -411,6 +411,17 @@ function storageDateKey(){
 }
 
 let pollTimer = null;
+// Controller cho request GET cua loadData() (tab Staff/Worker) - dung de HUY
+// request TRUOC do neu no van con dang cho/dang retry, moi khi loadData()
+// duoc goi lai (poll 2s tiep theo, hoac nguoi dung doi ngay/tab). Neu khong
+// huy, cac request cu se tiep tuc chiem giu 1 trong so gioi han ket noi
+// dong thoi cua trinh duyet toi cung 1 host (thuong ~6 ket noi/host) - doi
+// ngay cang nhieu lan lien tiep thi cang nhieu request cu bi ket lai trong
+// hang doi, khien request MOI (doi ngay ke tiep) phai xep hang rat lau moi
+// toi luot (dung trieu chung 10s -> 3 phut ban gap phai). CHI ap dung cho
+// loadData() (Staff/Worker) - khong dung toi loadDailySummary()/
+// loadWeeklySummary() dang chay on dinh, tranh anh huong ngoai y muon.
+let loadDataAbort = null;
 
 /* Co bao mot o input date "dang duoc thao tac" (lich dang mo). Khong dua vao
    document.activeElement nhu truoc nua vi tren nhieu trinh duyet/webview di
@@ -458,6 +469,12 @@ async function fetchWithRetry(url, options, attempts){
         return res;
       }
     }catch(e){
+      // Neu request nay bi HUY CHU DONG (xem loadData() - moi lan doi ngay/tab
+      // se huy request cu dang cho de nhuong cho ket noi cho request moi),
+      // dung lai ngay lap tuc, KHONG retry nua - retry mot request da bi huy
+      // chi ton them 1 slot ket noi vo ich, dung nguyen nhan gay xep hang cham
+      // dan khi doi ngay nhieu lan lien tiep.
+      if(e.name === 'AbortError') throw e;
       lastErr = e;
       if(i === attempts - 1) throw lastErr;
     }
@@ -490,9 +507,9 @@ function withPayloadFallback_(url, bodyObj){
   return url + (url.indexOf('?') === -1 ? '?' : '&') + q;
 }
 
-async function apiGet(date){
+async function apiGet(date, signal){
   const url = APPS_SCRIPT_URL + '?date=' + encodeURIComponent(date) + '&_=' + Date.now();
-  const res = await fetchWithRetry(url, { method: 'GET' });
+  const res = await fetchWithRetry(url, { method: 'GET', signal });
   return await res.json();
 }
 
@@ -556,6 +573,12 @@ function refreshButtonHtml(id, obj, label){
 
 async function loadData(showSyncDot){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
+  // Huy request GET truoc do neu no van con dang cho/dang retry (xem giai
+  // thich chi tiet o khai bao loadDataAbort ben tren) - nhuong ngay 1 slot
+  // ket noi cho request MOI nay thay vi de request cu tiep tuc chiem giu.
+  if(loadDataAbort) loadDataAbort.abort();
+  loadDataAbort = new AbortController();
+  const mySignal = loadDataAbort.signal;
   // Chup lai key (category+date) NGAY LUC bat dau request nay - dung de doi
   // chieu lai sau khi await xong (xem giai thich ben duoi). storageDateKey()
   // doc state.category/state.date TAI THOI DIEM goi, nen neu nguoi dung
@@ -571,7 +594,7 @@ async function loadData(showSyncDot){
   const shouldSkipRender = ()=> !showSyncDot && (isFormFocused() || state.confirmingSign || state.confirmingUnlock || state.confirmingReject);
   if(showSyncDot){ state.syncing = true; if(!shouldSkipRender()) render(); }
   try{
-    const result = await apiGet(requestedKey);
+    const result = await apiGet(requestedKey, mySignal);
     // Chi ap dung ket qua neu category/date HIEN TAI van con khop voi key da
     // yeu cau luc bat dau (requestedKey). Truong hop can chan: nguoi dung
     // dang o tab Staff, vong poll 2s cu goi loadData() cho "Staff" nhung bi
@@ -592,6 +615,10 @@ async function loadData(showSyncDot){
     // nham du lieu cua tab/ngay cu.
     if(requestedKey === storageDateKey()) pregeneratePdf();
   }catch(e){
+    // Request nay bi CHINH loadData() lan sau huy (binh thuong, khong phai
+    // loi mang that su) - thoat ngay, KHONG dong bat ky co trang thai nao,
+    // vi lan goi moi hon dang xu ly va se tu ket thuc dung cach cua no.
+    if(e.name === 'AbortError') return;
     console.error(e);
     if(requestedKey === storageDateKey()) state.syncError = 'Sync failed: ' + e.message;
   }
