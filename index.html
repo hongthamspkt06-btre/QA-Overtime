@@ -501,9 +501,24 @@ async function fetchWithRetry(url, options, attempts){
    phan payload= tren URL don gian bi bo qua, khong anh huong gi. Neu bi ha
    cap thanh GET, doGet() se tu doc duoc payload= tu URL va xu ly y het nhu
    doPost() (xem doGet() da duoc cap nhat trong Code.gs). KHONG ap dung cho
-   exportPdf vi file base64 qua lon, khong the nhet vao URL. */
+   exportPdf vi file base64 qua lon, khong the nhet vao URL.
+
+   GIOI HAN DO DAI: tab Summary (Trend) co the goi getBulk voi hang TRAM den
+   CA NGHIN key cung luc (ca nam x nhieu khoang thoi gian x 2 category - xem
+   fetchAllTrendDates), khien JSON.stringify(bodyObj) o day phinh to toi hang
+   chuc KB neu nhet het vao URL - chinh no la nguyen nhan tab Summary tu
+   nhanh hoa cham toi 5 phut sau khi ham nay duoc ap dung dai tra cho ca
+   apiGetBulk. URL qua dai de bi server/trinh duyet tu choi hoac cham bat
+   thuong, khien fetchWithRetry phai retry nhieu lan. Vi vay CHI gan
+   payload= khi ket qua con nam duoi 1 nguong an toan (~6000 ky tu) - vuot
+   qua nguong nay (chi xay ra voi bulk fetch lon cua tab Summary), bo qua
+   fallback va tra ve URL nhu cu (POST thuan, dung y het hanh vi truoc khi
+   co ham nay) - cac request nho (addRow, sign/unlock/reject, getBulk 3 key
+   cua tab Daily/Weekly) khong bao gio cham nguong nay nen van duoc bao ve
+   nhu binh thuong. */
 function withPayloadFallback_(url, bodyObj){
   const q = 'payload=' + encodeURIComponent(JSON.stringify(bodyObj));
+  if(q.length > 6000) return url; // qua dai (vd bulk fetch ca nam cua tab Summary) - bo qua fallback, giu nguyen POST thuan
   return url + (url.indexOf('?') === -1 ? '?' : '&') + q;
 }
 
