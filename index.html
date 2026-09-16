@@ -2225,14 +2225,45 @@ function renderDailySummary(app){
       const field = inp.getAttribute('data-field');
       const team = inp.getAttribute('data-team');
       const val = e.target.value;
-      saveDailySummaryMeta(meta => {
-        if(!meta[factory]) meta[factory] = {};
-        if(field === 'pic' && team){
+
+      // CHI RIENG 3 cot "Major Fac OT" / "Max Fac OT" / "PIC": hien gia tri
+      // MOI len man hinh NGAY LAP TUC (khong cho mang), roi moi luu nen phia
+      // sau. Truoc day ca 3 cot deu phai cho xong toi 2 vong mang tuan tu
+      // (1 GET doc lai meta moi nhat de merge + 1 POST luu) roi render() moi
+      // chay, nen go xong phai cho toi ~1 phut (khi mang cham/phai retry)
+      // moi thay chu vua go hien len.
+      if(field === 'majorFacOT' || field === 'maxFacOT'){
+        if(!ds.meta[factory]) ds.meta[factory] = {};
+        ds.meta[factory][field] = val;
+        render();
+        // pendingMetaSaves (tang ngay tu dau saveDailySummaryMeta) da co san
+        // co che chan poll 2s ghi de gia tri vua hien nay truoc khi luu nen
+        // xong (xem loadDailySummary() o tren) - khong can them gi nua.
+        saveDailySummaryMeta(meta => {
+          if(!meta[factory]) meta[factory] = {};
+          meta[factory][field] = val;
+        });
+        return;
+      }
+
+      if(field === 'pic' && team){
+        if(!ds.meta[factory]) ds.meta[factory] = {};
+        if(!ds.meta[factory].picByTeam) ds.meta[factory].picByTeam = {};
+        ds.meta[factory].picByTeam[team] = val;
+        render();
+        saveDailySummaryMeta(meta => {
+          if(!meta[factory]) meta[factory] = {};
           if(!meta[factory].picByTeam) meta[factory].picByTeam = {};
           meta[factory].picByTeam[team] = val;
-        } else {
-          meta[factory][field] = val;
-        }
+        });
+        return;
+      }
+
+      // Cac field khac (neu co sau nay ngoai 3 cot tren) van giu nguyen
+      // duong cu: cho ca 2 vong mang xong moi hien.
+      saveDailySummaryMeta(meta => {
+        if(!meta[factory]) meta[factory] = {};
+        meta[factory][field] = val;
       });
     };
   });
