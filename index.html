@@ -2164,7 +2164,7 @@ function renderDailySummary(app){
           <input type="date" id="datePicker" value="${state.date}">
         </div>
         ${refreshButtonHtml('refreshBtn', ds)}
-        <button class="btn" id="dsExportBtn">&#8681; Xuất Excel</button>
+        <button class="btn" id="dsExportBtn">&#8681; Export Excel</button>
       </div>
     </div>
     </div>
@@ -2492,7 +2492,7 @@ function renderWeeklySummary(app){
   app.innerHTML = `
     <div class="app-header">
       <span>QA Overtime</span>
-      <button class="btn btn-export" id="wsExportBtn">&#8681; Export PDF</button>
+      <button class="btn btn-export" id="wsExportExcelBtn">&#8681; Export Excel</button>
     </div>
     <div class="tab-bar">
       <div class="tab-bar-left">
@@ -2573,8 +2573,8 @@ function renderWeeklySummary(app){
   const rb = document.getElementById('refreshBtn');
   if(rb) rb.onclick = ()=>runManualRefresh(ws, ()=>loadWeeklySummary(true));
 
-  const exb = document.getElementById('wsExportBtn');
-  if(exb) exb.onclick = exportWeeklySummaryPdf;
+  const exb = document.getElementById('wsExportExcelBtn');
+  if(exb) exb.onclick = exportWeeklySummaryExcel;
 }
 
 function renderWeeklySummaryTable(){
@@ -2652,6 +2652,65 @@ function registerPdfFont(doc){
     pdfFontRegistered = true;
   }
   doc.setFont('Arimo', 'normal');
+}
+
+function exportWeeklySummaryExcel(){
+  const rows = buildWeeklySummaryRows();
+  const ws = state.weeklySummary;
+  if(rows.length === 0){ alert('Chưa có dữ liệu để xuất Excel.'); return; }
+
+  const dayHeaders = weeklyDayList().map(d => fmtDateShort(d));
+  const aoa = [['No.','Own Team','EMP ID','Full Name','Hour(Week)','Amount(Week)', ...dayHeaders]];
+
+  let totalHour = 0, totalAmount = 0;
+  rows.forEach((r, i) => {
+    totalHour += r.hourTotal;
+    totalAmount += r.amountTotal;
+    aoa.push([
+      i+1,
+      r.ownTeam,
+      r.idCode,
+      r.fullName,
+      r.hourTotal % 1 === 0 ? r.hourTotal : Number(r.hourTotal.toFixed(1)),
+      r.amountTotal,
+      ...r.dayTo
+    ]);
+  });
+
+  const dayTotals = buildWeeklyDayTotals();
+  const totalRowIdx = aoa.length;
+  aoa.push([
+    'Total', '', '', '',
+    totalHour % 1 === 0 ? totalHour : Number(totalHour.toFixed(1)),
+    totalAmount,
+    ...dayTotals.map(dt => (dt.hourSum % 1 === 0 ? dt.hourSum : Number(dt.hourSum.toFixed(1))) + 'h / ' + dt.amountSum)
+  ]);
+
+  const wsSheet = XLSX.utils.aoa_to_sheet(aoa);
+  wsSheet['!merges'] = [{ s:{r:totalRowIdx,c:0}, e:{r:totalRowIdx,c:3} }];
+  wsSheet['!cols'] = [{wch:6},{wch:14},{wch:10},{wch:20},{wch:12},{wch:14}, ...dayHeaders.map(()=>({wch:12}))];
+  wsSheet['!rows'] = aoa.map(()=>({hpt:20}));
+
+  const thinBorder = { style:'thin', color:{ rgb:'FF000000' } };
+  const range = XLSX.utils.decode_range(wsSheet['!ref']);
+  for(let r = range.s.r; r <= range.e.r; r++){
+    for(let c = range.s.c; c <= range.e.c; c++){
+      const ref = XLSX.utils.encode_cell({ r, c });
+      if(!wsSheet[ref]) continue;
+      const isHeader = r === 0;
+      const isTotal = r === totalRowIdx;
+      wsSheet[ref].s = {
+        font: { bold: isHeader || isTotal, color: isHeader ? { rgb:'FFFFFFFF' } : { rgb:'FF1A1A1A' } },
+        fill: isHeader ? { patternType:'solid', fgColor:{ rgb:'FF2F6FED' } } : (isTotal ? { patternType:'solid', fgColor:{ rgb:'FFEAF0FF' } } : undefined),
+        alignment: { horizontal:'center', vertical:'center', wrapText:true },
+        border: { top:thinBorder, bottom:thinBorder, left:thinBorder, right:thinBorder }
+      };
+    }
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsSheet, 'Weekly Summary');
+  XLSX.writeFile(wb, 'Weekly_Summary_' + ws.from + '_to_' + ws.to + '.xlsx');
 }
 
 function exportWeeklySummaryPdf(){
