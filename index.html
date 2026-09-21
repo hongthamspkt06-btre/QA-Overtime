@@ -2148,7 +2148,10 @@ function renderDailySummary(app){
   const ds = state.dailySummary;
 
   app.innerHTML = `
-    <div class="app-header">QA Overtime</div>
+    <div class="app-header">
+      <span>QA Overtime</span>
+      <button class="btn btn-export" id="dsExportBtn">&#8681; Export Excel</button>
+    </div>
     <div class="tab-bar">
       <div class="tab-bar-left">
       <button class="tab-btn" id="tabStaff">Staff</button>
@@ -2164,7 +2167,6 @@ function renderDailySummary(app){
           <input type="date" id="datePicker" value="${state.date}">
         </div>
         ${refreshButtonHtml('refreshBtn', ds)}
-        <button class="btn" id="dsExportBtn">&#8681; Export Excel</button>
       </div>
     </div>
     </div>
