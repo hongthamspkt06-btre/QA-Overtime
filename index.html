@@ -406,6 +406,24 @@ function invalidateTrendCacheForToday(){
   delete trendCache.Worker[t];
 }
 
+/* BUG FIX: invalidateTrendCacheForToday() o tren chi xoa cache cua "hom nay"
+   moi khi MO LAI tab Trend - nhung addRow/deleteRow/sign/unlock/reject (qua
+   applyDelta) co the sua du lieu cua BAT KY ngay nao trong qua khu (vd nguoi
+   dung sua/nhap bu OT cho ngay hom truoc), khong chi hom nay. Neu tab Trend
+   tung duoc mo truoc do va da cache ngay do la [] (chua co du lieu), thi sau
+   khi them du lieu that cho dung ngay ay, cache van giu nguyen [] mai mai
+   trong phien lam viec - Trend/Summary se hien 0 du lieu du Staff/Worker da
+   co du lieu that. Fix: xoa dung entry cache (category+date) cua request vua
+   luu thanh cong, bat ke ngay do co phai "hom nay" hay khong va bat ke tab
+   nao dang duoc xem luc goi lai. */
+function invalidateTrendCacheForKey(key){
+  const idx = (key || '').indexOf('::');
+  if(idx < 0) return;
+  const cat = key.slice(0, idx);
+  const date = key.slice(idx + 2);
+  if(trendCache[cat]) delete trendCache[cat][date];
+}
+
 function storageDateKey(){
   return state.category + '::' + state.date;
 }
@@ -1185,6 +1203,11 @@ async function applyDelta(action, payload){
     // van tinh la "ok" du sau do nguoi dung co the da doi sang tab khac.
     ok = true;
     state.syncError = '';
+    // Luon xoa cache Trend cua dung ngay/category vua sua thanh cong (xem
+    // giai thich o invalidateTrendCacheForKey), bat ke tab dang xem co con
+    // khop voi requestedKey hay khong - neu khong lam o day, du lieu moi
+    // sua/them se khong bao gio duoc Trend/Summary nhin thay trong phien nay.
+    invalidateTrendCacheForKey(requestedKey);
     // CHI ghi de state.data (va lam moi PDF cache) neu tab/ngay hien tai
     // VAN CON khop voi luc goi request nay. Neu khong khop (da doi tab
     // trong luc cho) - bo qua, KHONG dung rollback vi optimistic row cua
