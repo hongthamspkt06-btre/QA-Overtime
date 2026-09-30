@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#D5D8DC;
@@ -196,43 +195,7 @@
   .modal-actions{display:flex;gap:10px;justify-content:center;}
   .modal-actions .btn{flex:1;justify-content:center;}
 
-  .trend-lock{max-width:360px;margin:60px auto;text-align:center;}
-  .trend-lock .lock-icon{font-size:12px;margin-bottom:10px;}
-  .trend-lock h3{margin:0 0 6px;font-size:12px;}
-  .trend-lock p{color:var(--sub);font-size:12px;margin:0 0 16px;}
-  .trend-lock-row{display:flex;gap:8px;justify-content:center;}
-  .trend-lock-row input{width:180px;}
-  .trend-section{margin-bottom:22px;}
-  .trend-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;}
-  .trend-section-title{font-size:12px;font-weight:800;letter-spacing:.02em;}
-  .trend-section-sub{font-size:12px;color:var(--sub);margin-top:2px;}
-  .gran-toggle{display:flex;gap:4px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:3px;}
-  .gran-btn{border:none;background:transparent;color:var(--sub);font-size:12px;font-weight:700;padding:6px 14px;border-radius:6px;cursor:pointer;letter-spacing:.02em;}
-  .gran-btn.active{background:var(--steel);color:#fff;}
-  .trend-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .trend-charts.single{grid-template-columns:1fr;}
-  .trend-charts-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-  .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
-  .chart-card-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:2px;}
-  .chart-card-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
-  .chart-card-filters{display:flex;gap:6px;flex-wrap:wrap;}
-  .chart-card-filters select, .chart-card-filters input[type=date]{font-size:12px;padding:5px 6px;min-width:0;}
-  .chart-card-legend{font-size:12px;color:var(--sub);margin-bottom:10px;display:flex;gap:14px;flex-wrap:wrap;}
-  .chart-card-legend span{display:inline-flex;align-items:center;gap:5px;}
-  .legend-swatch{width:14px;height:0;border-top:2px dashed var(--red);display:inline-block;}
-  .legend-swatch.avg{border-top-color:var(--steel);}
-  .chart-wrap{position:relative;height:240px;}
-  .qa-detail-section-label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--sub);font-weight:700;margin:12px 0 6px;}
-  .qa-detail-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
-  .qa-detail-table{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%;}
-  .qa-detail-table th, .qa-detail-table td{padding:5px 9px;border-bottom:1px solid var(--border);border-right:1px solid #f2f3f5;text-align:right;}
-  .qa-detail-table thead th{background:var(--panel2);color:var(--sub);font-weight:700;font-size:12px;}
-  .qa-detail-table th:first-child, .qa-detail-table td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);font-weight:700;z-index:1;}
-  .qa-detail-table thead th:first-child{background:var(--panel2);}
-  .qa-detail-sum-col{font-weight:800;border-left:2px solid var(--border);background:var(--panel2);}
   @media (max-width:820px){
-    .trend-charts{grid-template-columns:1fr;}
-    .trend-charts-3{grid-template-columns:1fr;}
   }
 </style>
 
@@ -366,63 +329,7 @@ let state = {
   pendingMutations: 0,
   dailySummary: { staffRows: [], workerRows: [], meta: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false, pendingMetaSaves: 0 },
   weeklySummary: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 5), staffByDate: {}, loading: true, syncing: false, syncError: '', refreshBusy: false, refreshSynced: false },
-  trend: (function(){
-    const t = todayStr();
-    const y = Number(t.slice(0,4)), m = Number(t.slice(5,7));
-    return {
-      unlocked: false, pwInput: '', pwError: '', loading: false, loaded: false, syncError: '', loadProgress: null,
-      // QA(Staff) Trend: two independent boxes, each with its own Year + Month filter.
-      staffPeriod: { year: y, month: m },
-      // QA(Staff) Trend: QA Detail box - numeric breakdown for one person.
-      staffDetail: { year: y, month: m, team: '', fullName: '' },
-      // QA(Worker) Trend: three boxes side by side - Week / Month / Year.
-      workerWeek: { from: mondayOfCurrentWeek(), to: addDaysStr(mondayOfCurrentWeek(), 6) },
-      workerMonth: { year: y, month: m },
-      workerYear: { year: y },
-      // QA(Worker) Trend: QA Detail box - numeric breakdown for one person, filtered by Position.
-      workerDetail: { year: y, month: m, position: '', fullName: '' }
-    };
-  })()
 };
-
-/* Per-day OT rows fetched for the Trend tab, cached in memory so switching
-   between Week/Month/Year granularity does not refetch already-seen days. */
-const trendCache = { Staff: {}, Worker: {} };
-/* Years for which at least one OT row has actually been fetched/found, used
-   to populate the Trend tab's Year dropdown with only years that have data
-   entered instead of a hard-coded range. Seeded with the current year so the
-   dropdown isn't empty before anything loads. */
-const trendKnownYears = new Set([new Date().getFullYear()]);
-let trendCharts = {}; // Chart.js instances keyed by canvas id, so we can destroy/recreate on re-render
-
-/* Xoa cache CUA RIENG hom nay (ca Staff lan Worker). Cac ngay da qua la du
-   lieu lich su, khong doi nen giu cache la an toan - nhung hom nay co the
-   vua co OT moi duoc nhap/duyet/sua trong luc tab Trend dang khong mo, nen
-   moi lan quay lai tab Trend can coi cache cua hom nay la "cu" va lay lai,
-   thay vi hien so lieu cache tu lan xem truoc do trong cung phien lam viec. */
-function invalidateTrendCacheForToday(){
-  const t = todayStr();
-  delete trendCache.Staff[t];
-  delete trendCache.Worker[t];
-}
-
-/* BUG FIX: invalidateTrendCacheForToday() o tren chi xoa cache cua "hom nay"
-   moi khi MO LAI tab Trend - nhung addRow/deleteRow/sign/unlock/reject (qua
-   applyDelta) co the sua du lieu cua BAT KY ngay nao trong qua khu (vd nguoi
-   dung sua/nhap bu OT cho ngay hom truoc), khong chi hom nay. Neu tab Trend
-   tung duoc mo truoc do va da cache ngay do la [] (chua co du lieu), thi sau
-   khi them du lieu that cho dung ngay ay, cache van giu nguyen [] mai mai
-   trong phien lam viec - Trend/Summary se hien 0 du lieu du Staff/Worker da
-   co du lieu that. Fix: xoa dung entry cache (category+date) cua request vua
-   luu thanh cong, bat ke ngay do co phai "hom nay" hay khong va bat ke tab
-   nao dang duoc xem luc goi lai. */
-function invalidateTrendCacheForKey(key){
-  const idx = (key || '').indexOf('::');
-  if(idx < 0) return;
-  const cat = key.slice(0, idx);
-  const date = key.slice(idx + 2);
-  if(trendCache[cat]) delete trendCache[cat][date];
-}
 
 function storageDateKey(){
   return state.category + '::' + state.date;
@@ -445,7 +352,7 @@ let loadDataAbort = null;
    nen request nao cung bi huy truoc khi ve toi noi ("echo?user_content_key...
    (canceled)" trong Network) -> du lieu khong bao gio ve cho den khi tinh co
    co 1 request ve kip trong < 2s. Gio: poll se BO QUA neu request cung key
-   van dang bay (toi da 30s); chi thao tac cua nguoi dung (doi ngay/tab/Refresh)
+   van dang bay (toi da 120s); chi thao tac cua nguoi dung (doi ngay/tab/Refresh)
    moi huy request cu. */
 let loadDataBusyKey = null;
 let loadDataBusySince = 0;
@@ -615,7 +522,7 @@ function refreshButtonHtml(id, obj, label){
 
 async function loadData(showSyncDot, isPoll){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
-  if(isPoll && loadDataBusyKey === storageDateKey() && (Date.now() - loadDataBusySince) < 30000) return;
+  if(isPoll && loadDataBusyKey === storageDateKey() && (Date.now() - loadDataBusySince) < 120000) return;
   // Huy request GET truoc do neu no van con dang cho/dang retry (xem giai
   // thich chi tiet o khai bao loadDataAbort ben tren) - nhuong ngay 1 slot
   // ket noi cho request MOI nay thay vi de request cu tiep tuc chiem giu.
@@ -687,7 +594,6 @@ function startPolling(){
   pollTimer = setInterval(()=>{
     if(state.category === 'DailySummary') loadDailySummary(false);
     else if(state.category === 'WeeklySummary') loadWeeklySummary(false);
-    else if(state.category === 'Trend') { /* no auto-poll: trend data is cached and fetched on demand */ }
     else loadData(false, true);
   }, 2000); // Request list refresh interval: 2s so new entries from other users/tabs show up quickly
 }
@@ -834,350 +740,6 @@ function buildWeeklyDayTotals(){
   });
 }
 
-/* ====== Trend tab: date-range helpers, fetch/aggregate helpers ====== */
-
-function mondayOfWeekContaining(iso){
-  const d = new Date(iso + 'T00:00:00');
-  const day = d.getDay(); // 0=Sun..6=Sat
-  const diffToMonday = (day === 0) ? -6 : (1 - day);
-  d.setDate(d.getDate() + diffToMonday);
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-/* Every date list below is capped at "today" - future dates are simply
-   skipped since there is no OT data for them yet. */
-function trendDatesInRange(from, to){
-  const today = todayStr();
-  if(!from || !to) return [];
-  let start = from, end = to;
-  if(start > end){ const tmp = start; start = end; end = tmp; }
-  const dates = [];
-  let d = start;
-  let guard = 0;
-  while(d <= end && guard < 400){ // guard: sane upper bound on manual From/To range
-    if(d <= today) dates.push(d);
-    d = addDaysStr(d, 1);
-    guard++;
-  }
-  return dates;
-}
-
-function trendDatesInMonth(year, month){
-  const today = todayStr();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const dates = [];
-  for(let day = 1; day <= daysInMonth; day++){
-    const ds = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-    if(ds > today) break;
-    dates.push(ds);
-  }
-  return dates;
-}
-
-function trendDatesInYear(year){
-  const today = todayStr();
-  const curYear = Number(today.slice(0, 4));
-  const maxMonth = (year === curYear) ? Number(today.slice(5, 7)) : 12;
-  let dates = [];
-  for(let m = 1; m <= maxMonth; m++) dates = dates.concat(trendDatesInMonth(year, m));
-  return dates;
-}
-
-/* month is 1-12, or '' / falsy to aggregate the whole year. */
-function trendDatesForYearMonth(year, month){
-  return month ? trendDatesInMonth(year, Number(month)) : trendDatesInYear(year);
-}
-
-/* Gop toan bo ngay con thieu (ca Staff lan Worker) thanh 1 lan goi POST
-   duy nhat (apiGetBulk) thay vi goi apiGet() rieng cho tung ngay. Day la
-   nguyen nhan chinh khien tab Trend truoc day mat toi 10 phut: xem ca nam
-   co the phai goi GAS toi ~730 lan (365 ngay x 2 category). */
-async function fetchAllTrendDates(dates, onDone){
-  const missingStaff = dates.filter(d => trendCache.Staff[d] === undefined);
-  const missingWorker = dates.filter(d => trendCache.Worker[d] === undefined);
-  const keys = missingStaff.map(d => 'Staff::' + d)
-    .concat(missingWorker.map(d => 'Worker::' + d));
-  if(keys.length){
-    const bulk = await apiGetBulk(keys);
-    missingStaff.forEach(d => {
-      const res = bulk['Staff::' + d];
-      // Rejected dates are excluded from Trend entirely — only Pending
-      // (not yet signed) or Done (approved) data counts toward the charts.
-      trendCache.Staff[d] = (res && res.rows && !res.rejected) ? res.rows : [];
-      if(trendCache.Staff[d].length) trendKnownYears.add(Number(d.slice(0,4)));
-    });
-    missingWorker.forEach(d => {
-      const res = bulk['Worker::' + d];
-      trendCache.Worker[d] = (res && res.rows && !res.rejected) ? res.rows : [];
-      if(trendCache.Worker[d].length) trendKnownYears.add(Number(d.slice(0,4)));
-    });
-  }
-  if(onDone) onDone();
-}
-
-/* Loads whatever daily data every visible Trend box currently needs (union of
-   the 5 independent filter boxes below), then caches it in trendCache so
-   switching a single box's Year/Month/Week filter re-renders instantly
-   without a full refetch. */
-function trendAllNeededDates(){
-  const tr = state.trend;
-  const sets = [
-    trendDatesForYearMonth(tr.staffPeriod.year, tr.staffPeriod.month),
-    trendDatesInYear(tr.staffDetail.year), // covers both its day-in-month and month-in-year rows
-    trendDatesInRange(tr.workerWeek.from, tr.workerWeek.to),
-    trendDatesForYearMonth(tr.workerMonth.year, tr.workerMonth.month),
-    trendDatesInYear(tr.workerYear.year),
-    trendDatesInYear(tr.workerDetail.year) // covers both its day-in-month and month-in-year rows
-  ];
-  return Array.from(new Set(sets.flat()));
-}
-
-async function loadTrendData(){
-  const tr = state.trend;
-  tr.loading = true;
-  tr.syncError = '';
-  tr.loadProgress = null;
-  render();
-  try{
-    const allDates = trendAllNeededDates();
-    await fetchAllTrendDates(allDates);
-    tr.loaded = true;
-  }catch(e){
-    console.error(e);
-    tr.syncError = 'Sync failed: ' + e.message;
-  }
-  tr.loading = false;
-  tr.loadProgress = null;
-  render();
-}
-
-/* Team-name normalization for the Staff Trend charts: some teams are split
-   across factories/brands in the raw data (e.g. "MW Lab" vs "F7 Lab", or
-   "MW Colorist" vs "F6/F7 Colorist") but should be reported as one combined
-   team ("Lab" / "Colorist") rather than as separate bars. */
-function normalizeTeamName(team){
-  const t = (team || '').trim();
-  if(!t) return '(No team)';
-  if(/colorist/i.test(t)) return 'Colorist';
-  if(/\blab\b/i.test(t)) return 'Lab';
-  return t;
-}
-
-/* Fixed x-axis order for the "Average Hour & Amount by Team" chart, per the
-   business-requested layout (support teams first, then factory teams, then
-   Colorist/Lab/Office). Teams not found in this list (shouldn't normally
-   happen) are appended alphabetically after it, so nothing silently
-   disappears from the chart. */
-const STAFF_AVERAGE_TEAM_ORDER = ['A&F', 'AEO', 'CostCo', 'Cotton On', 'Pink', 'Target', 'Wal-Mart', 'F6 Uniqlo', 'F7 Uniqlo', 'Colorist', 'Lab', 'Office'];
-function staffAverageTeamSort(a, b){
-  const ia = STAFF_AVERAGE_TEAM_ORDER.indexOf(a);
-  const ib = STAFF_AVERAGE_TEAM_ORDER.indexOf(b);
-  if(ia === -1 && ib === -1) return a.localeCompare(b);
-  if(ia === -1) return 1;
-  if(ib === -1) return -1;
-  return ia - ib;
-}
-
-/* Position normalization for QA(Worker): each Worker's Own Team string
-   encodes a factory prefix plus a position (e.g. "F6/F7 PSC", "F1/F2 PSC",
-   "F6 FQC", "F7 SOP") - the QA(Worker) Detail box filters by the position
-   only (PSC / SOP / FQC), regardless of which factory it's paired with. */
-function normalizeWorkerPosition(team){
-  const t = (team || '').trim();
-  if(!t) return '(No position)';
-  if(/PSC/i.test(t)) return 'PSC';
-  if(/SOP/i.test(t)) return 'SOP';
-  if(/FQC/i.test(t)) return 'FQC';
-  return t;
-}
-
-/* Aggregates QA(Staff) rows across `dates`, grouped by team. metric is
-   'hour' or 'amount'. Returns series sorted by value desc for charting.
-
-   Quy tắc chung (giống buildDailySummaryGroups): khi nhân viên chọn Support
-   Team (requestedBy) khác với Own Team gốc của họ và khác "Own", thì OT đó
-   được TÍNH vào team hỗ trợ (Support Team), không phải Own Team gốc. Nếu
-   requestedBy trống hoặc bằng "Own" (hoặc trùng Own Team gốc), thì lấy theo
-   Own Team như bình thường. */
-function buildStaffTeamSeries(dates, metric){
-  const cache = trendCache.Staff;
-  const map = new Map();
-  dates.forEach(d => (cache[d] || []).forEach(r => {
-    const originalOwnTeam = (r.ownTeam || '').trim();
-    const requestedBy = (r.requestedBy || '').trim();
-    const effectiveTeam = (requestedBy && requestedBy !== 'Own' && requestedBy !== originalOwnTeam)
-      ? requestedBy
-      : originalOwnTeam;
-    const team = normalizeTeamName(effectiveTeam);
-    const h = hoursDiff(r.otFrom, r.otTo);
-    const val = metric === 'hour' ? h : computeOtAmount(h);
-    map.set(team, (map.get(team) || 0) + val);
-  }));
-  return Array.from(map.entries())
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value);
-}
-
-/* Số lượt người tăng ca theo từng team trong `dates` (mỗi dòng OT = 1 lượt),
-   dùng cùng quy tắc gom team (effectiveTeam) như buildStaffTeamSeries, để có
-   thể ghép 1-1 với series đó theo team label. */
-function buildStaffTeamTurnCounts(dates){
-  const cache = trendCache.Staff;
-  const map = new Map();
-  (dates || []).forEach(d => (cache[d] || []).forEach(r => {
-    const originalOwnTeam = (r.ownTeam || '').trim();
-    const requestedBy = (r.requestedBy || '').trim();
-    const effectiveTeam = (requestedBy && requestedBy !== 'Own' && requestedBy !== originalOwnTeam)
-      ? requestedBy
-      : originalOwnTeam;
-    const team = normalizeTeamName(effectiveTeam);
-    map.set(team, (map.get(team) || 0) + 1);
-  }));
-  return map;
-}
-
-/* Giờ (hoặc Amount) trung bình / 1 lượt người tăng ca, theo TỪNG team:
-     = Tổng số giờ (hoặc Amount) tăng ca của team / Σ(Số người tăng ca của team đó từng ngày)
-   Trả về mảng song song với `series` (cùng thứ tự team), mỗi phần tử là số
-   trung bình của team đó, hoặc null nếu team không có lượt nào. */
-function trendAveragePerTurnByTeam(series, dates){
-  const turnCounts = buildStaffTeamTurnCounts(dates);
-  return series.map(s => {
-    const cnt = turnCounts.get(s.label) || 0;
-    return cnt ? s.value / cnt : null;
-  });
-}
-
-/* Weighted overall average per turn (hour or amount) across ALL teams
-   combined - i.e. total value / total turns for every team together -
-   using the exact same "total / turns" method as trendAveragePerTurnByTeam
-   above, just summed over the whole population instead of one team. Used
-   for the black dashed "Average of All Teams" reference line on the
-   Average Hour chart. */
-function trendOverallAveragePerTurn(series, dates){
-  const totalValue = series.reduce((s, x) => s + x.value, 0);
-  const turnCounts = buildStaffTeamTurnCounts(dates);
-  const totalTurns = Array.from(turnCounts.values()).reduce((s, x) => s + x, 0);
-  return totalTurns ? totalValue / totalTurns : null;
-}
-
-/* Builds the per-team Average Hour and Average Amount series for the
-   "Average Hour & Amount by Team" chart, which now has its own single
-   Year/Month filter (hourSeries/amountSeries are built from the same
-   dates). Kept as two separate series/dates parameters since the
-   underlying per-team average math is identical either way; the team list
-   is the union of both, in the fixed STAFF_AVERAGE_TEAM_ORDER order, with a
-   team missing from one side getting a null (no point/bar drawn) there. */
-function buildStaffAverageByTeam(hourSeries, hourDates, amountSeries, amountDates){
-  const hourAvgs = trendAveragePerTurnByTeam(hourSeries, hourDates);
-  const amountAvgs = trendAveragePerTurnByTeam(amountSeries, amountDates);
-  const hourMap = new Map(hourSeries.map((s, i) => [s.label, hourAvgs[i]]));
-  const amountMap = new Map(amountSeries.map((s, i) => [s.label, amountAvgs[i]]));
-  const teams = Array.from(new Set([...hourMap.keys(), ...amountMap.keys()])).sort(staffAverageTeamSort);
-  return {
-    teams,
-    hourValues: teams.map(t => hourMap.has(t) ? hourMap.get(t) : null),
-    amountValues: teams.map(t => amountMap.has(t) ? amountMap.get(t) : null)
-  };
-}
-
-/* Aggregates QA(Worker) hours across `dates`, grouped by person (keyed by
-   Emp ID when available, to keep two same-named workers separate) but
-   labeled by Full Name for display, falling back to Emp ID only if the name
-   is blank. Returns series sorted by value desc. */
-function buildWorkerEmpSeries(dates){
-  const cache = trendCache.Worker;
-  const map = new Map();
-  dates.forEach(d => (cache[d] || []).forEach(r => {
-    const idCode = (r.idCode || '').trim();
-    const fullName = (r.fullName || '').trim();
-    const key = idCode || ('__' + fullName);
-    const label = fullName || idCode || '?';
-    const h = hoursDiff(r.otFrom, r.otTo);
-    if(!map.has(key)) map.set(key, { label, value: 0 });
-    map.get(key).value += h;
-  }));
-  return Array.from(map.values()).sort((a, b) => b.value - a.value);
-}
-
-/* Aggregates one person's OT for a QA Detail box: hour+amount for every day
-   of `month` in `year` (capped at today), and hour+amount for every month of
-   `year` (capped at the current month if `year` is this year). A day or
-   month that hasn't happened yet is `null` (rendered as "-") rather than 0,
-   to distinguish "no OT" from "not reached yet". personKey matches the same
-   Emp ID / Full Name key scheme used by buildWorkerEmpSeries. `cache` is
-   either trendCache.Staff or trendCache.Worker, so this same helper backs
-   both the QA(Staff) and QA(Worker) Detail boxes. */
-function buildPersonDetailData(cache, personKey, year, month){
-  const today = todayStr();
-  const curYear = Number(today.slice(0, 4));
-
-  function sumForDate(ds){
-    let hour = 0, amount = 0;
-    (cache[ds] || []).forEach(r => {
-      const idCode = (r.idCode || '').trim();
-      const fullName = (r.fullName || '').trim();
-      const key = idCode || ('__' + fullName);
-      if(key !== personKey) return;
-      const h = hoursDiff(r.otFrom, r.otTo);
-      hour += h;
-      amount += computeOtAmount(h);
-    });
-    return { hour, amount };
-  }
-
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const dayHours = [], dayAmounts = [];
-  for(let day = 1; day <= daysInMonth; day++){
-    const ds = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-    if(ds > today){ dayHours.push(null); dayAmounts.push(null); continue; }
-    const r = sumForDate(ds);
-    dayHours.push(r.hour);
-    dayAmounts.push(r.amount);
-  }
-
-  const maxMonth = year < curYear ? 12 : (year === curYear ? Number(today.slice(5, 7)) : 0);
-  const monthHours = [], monthAmounts = [];
-  for(let m = 1; m <= 12; m++){
-    if(m > maxMonth){ monthHours.push(null); monthAmounts.push(null); continue; }
-    let hour = 0, amount = 0;
-    const dim = new Date(year, m, 0).getDate();
-    for(let day = 1; day <= dim; day++){
-      const ds = year + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-      if(ds > today) break;
-      const r = sumForDate(ds);
-      hour += r.hour;
-      amount += r.amount;
-    }
-    monthHours.push(hour);
-    monthAmounts.push(amount);
-  }
-
-  return {
-    dayHours, dayAmounts, monthHours, monthAmounts,
-    daySumHour: sumOrNull(dayHours), daySumAmount: sumOrNull(dayAmounts),
-    monthSumHour: sumOrNull(monthHours), monthSumAmount: sumOrNull(monthAmounts)
-  };
-}
-
-/* QA(Staff) Detail box: same as buildPersonDetailData, fixed to the Staff cache. */
-function buildStaffDetailData(personKey, year, month){
-  return buildPersonDetailData(trendCache.Staff, personKey, year, month);
-}
-
-/* QA(Worker) Detail box: same as buildPersonDetailData, fixed to the Worker cache. */
-function buildWorkerDetailData(personKey, year, month){
-  return buildPersonDetailData(trendCache.Worker, personKey, year, month);
-}
-
-/* Sums an array of numbers/nulls (skipping nulls, i.e. days/months not yet
-   reached). Returns null only when every entry is null (nothing to sum). */
-function sumOrNull(arr){
-  const vals = arr.filter(v => v !== null && v !== undefined);
-  if(!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0);
-}
-
 async function apiDelta(date, action, payload){
   const body = { date, action, payload };
   const res = await fetchWithRetry(withPayloadFallback_(APPS_SCRIPT_URL, body), {
@@ -1217,11 +779,6 @@ async function applyDelta(action, payload){
     // van tinh la "ok" du sau do nguoi dung co the da doi sang tab khac.
     ok = true;
     state.syncError = '';
-    // Luon xoa cache Trend cua dung ngay/category vua sua thanh cong (xem
-    // giai thich o invalidateTrendCacheForKey), bat ke tab dang xem co con
-    // khop voi requestedKey hay khong - neu khong lam o day, du lieu moi
-    // sua/them se khong bao gio duoc Trend/Summary nhin thay trong phien nay.
-    invalidateTrendCacheForKey(requestedKey);
     // CHI ghi de state.data (va lam moi PDF cache) neu tab/ngay hien tai
     // VAN CON khop voi luc goi request nay. Neu khong khop (da doi tab
     // trong luc cho) - bo qua, KHONG dung rollback vi optimistic row cua
@@ -1812,12 +1369,6 @@ function render(){
     return;
   }
 
-  if(state.category === 'Trend'){
-    renderTrendTab(app);
-    restoreScrollPositions();
-    return;
-  }
-
   app.innerHTML = `
     <div class="app-header">
       <span>QA Overtime</span>
@@ -1829,7 +1380,6 @@ function render(){
       <button class="tab-btn ${state.category==='Worker'?'active':''}" id="tabWorker">Worker</button>
       <button class="tab-btn ${state.category==='DailySummary'?'active':''}" id="tabDailySummary">Daily</button>
       <button class="tab-btn ${state.category==='WeeklySummary'?'active':''}" id="tabWeeklySummary">Weekly</button>
-      <button class="tab-btn ${state.category==='Trend'?'active':''}" id="tabTrend">Summary</button>
       </div>
     <div class="topbar">
       <div class="topbar-right">
@@ -2017,16 +1567,6 @@ function render(){
     } else if(cat === 'WeeklySummary'){
       state.weeklySummary.loading = true;
       loadWeeklySummary(false);
-    } else if(cat === 'Trend'){
-      // Moi lan mo lai tab Trend: coi du lieu hom nay la co the da cu (vd
-      // vua nhap/sua OT o tab khac), nen xoa cache cua hom nay va load lai -
-      // cac ngay khac van dung cache san co nen khong bi cham lai nhu truoc.
-      if(state.trend.unlocked){
-        invalidateTrendCacheForToday();
-        loadTrendData();
-      } else {
-        render();
-      }
     } else {
       state.loading = true;
       loadData(false);
@@ -2040,8 +1580,6 @@ function render(){
   if(tabWeeklySummary) tabWeeklySummary.onclick = ()=>switchTab('WeeklySummary');
   const tabDailySummary = document.getElementById('tabDailySummary');
   if(tabDailySummary) tabDailySummary.onclick = ()=>switchTab('DailySummary');
-  const tabTrend = document.getElementById('tabTrend');
-  if(tabTrend) tabTrend.onclick = ()=>switchTab('Trend');
 
   const dp = document.getElementById('datePicker');
   if(dp) dp.onchange = (e)=>{ dateInputActive = false; state.date = e.target.value; state.loading = true; state.confirmingSign=false; state.confirmingUnlock=false; state.confirmingReject=false; state.showSignOffActions=false; state.exportMsg=''; loadData(false); };
@@ -2195,7 +1733,6 @@ function renderDailySummary(app){
       <button class="tab-btn" id="tabWorker">Worker</button>
       <button class="tab-btn active" id="tabDailySummary">Daily</button>
       <button class="tab-btn" id="tabWeeklySummary">Weekly</button>
-      <button class="tab-btn" id="tabTrend">Trend</button>
       </div>
     <div class="topbar">
       <div class="topbar-right">
@@ -2228,16 +1765,6 @@ function renderDailySummary(app){
     } else if(cat === 'WeeklySummary'){
       state.weeklySummary.loading = true;
       loadWeeklySummary(false);
-    } else if(cat === 'Trend'){
-      // Moi lan mo lai tab Trend: coi du lieu hom nay la co the da cu (vd
-      // vua nhap/sua OT o tab khac), nen xoa cache cua hom nay va load lai -
-      // cac ngay khac van dung cache san co nen khong bi cham lai nhu truoc.
-      if(state.trend.unlocked){
-        invalidateTrendCacheForToday();
-        loadTrendData();
-      } else {
-        render();
-      }
     } else {
       state.loading = true;
       loadData(false);
@@ -2249,8 +1776,6 @@ function renderDailySummary(app){
   if(tabWorker) tabWorker.onclick = ()=>switchTab('Worker');
   const tabWeeklySummary = document.getElementById('tabWeeklySummary');
   if(tabWeeklySummary) tabWeeklySummary.onclick = ()=>switchTab('WeeklySummary');
-  const tabTrend = document.getElementById('tabTrend');
-  if(tabTrend) tabTrend.onclick = ()=>switchTab('Trend');
 
   const dp = document.getElementById('datePicker');
   if(dp) dp.onchange = (e)=>{ dateInputActive = false; state.date = e.target.value; state.dailySummary.loading = true; loadDailySummary(false); };
@@ -2539,7 +2064,6 @@ function renderWeeklySummary(app){
       <button class="tab-btn" id="tabWorker">Worker</button>
       <button class="tab-btn" id="tabDailySummary">Daily</button>
       <button class="tab-btn active" id="tabWeeklySummary">Weekly</button>
-      <button class="tab-btn" id="tabTrend">Trend</button>
       </div>
     <div class="topbar">
       <div class="topbar-right">
@@ -2576,16 +2100,6 @@ function renderWeeklySummary(app){
     } else if(cat === 'WeeklySummary'){
       state.weeklySummary.loading = true;
       loadWeeklySummary(false);
-    } else if(cat === 'Trend'){
-      // Moi lan mo lai tab Trend: coi du lieu hom nay la co the da cu (vd
-      // vua nhap/sua OT o tab khac), nen xoa cache cua hom nay va load lai -
-      // cac ngay khac van dung cache san co nen khong bi cham lai nhu truoc.
-      if(state.trend.unlocked){
-        invalidateTrendCacheForToday();
-        loadTrendData();
-      } else {
-        render();
-      }
     } else {
       state.loading = true;
       loadData(false);
@@ -2597,8 +2111,6 @@ function renderWeeklySummary(app){
   if(tabWorker) tabWorker.onclick = ()=>switchTab('Worker');
   const tabDailySummary = document.getElementById('tabDailySummary');
   if(tabDailySummary) tabDailySummary.onclick = ()=>switchTab('DailySummary');
-  const tabTrendWs = document.getElementById('tabTrend');
-  if(tabTrendWs) tabTrendWs.onclick = ()=>switchTab('Trend');
 
   const fromEl = document.getElementById('wsFrom');
   if(fromEl) fromEl.onchange = (e) => {
@@ -2799,710 +2311,6 @@ function exportWeeklySummaryPdf(){
   });
 
   doc.save('Weekly_Summary_' + ws.from + '_to_' + ws.to + '.pdf');
-}
-
-/* ====== Trend tab: password-gated OT trend charts ====== */
-
-/* Fixed OT-hour ceilings for the QA(Worker) trend charts - always drawn as a
-   dashed red reference line regardless of what the actual data shows. */
-const TREND_WORKER_MAX = { week: 12, month: 40, year: 300 };
-
-/* Average of the entered values in a Trend series (used for the QA(Staff)
-   dashed black average line). Returns null when there is no data, so the
-   caller can skip drawing the reference line entirely. */
-function trendAverage(series){
-  const vals = (series || []).map(s => s.value).filter(v => v !== null && v !== undefined && isFinite(v));
-  if(!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
-}
-
-function drawTrendChart(canvasId, series, valueKey, opts){
-  const canvasEl = document.getElementById(canvasId);
-  if(!canvasEl || typeof Chart === 'undefined') return;
-  if(trendCharts[canvasId]){ trendCharts[canvasId].destroy(); delete trendCharts[canvasId]; }
-
-  const labels = series.map(s => s.label);
-  const data = series.map(s => s[valueKey]);
-  const refValue = opts.refValue;
-  const hasRef = refValue !== null && refValue !== undefined && isFinite(refValue);
-  // Per-bar reference values (e.g. average / turn of EACH team), drawn as a
-  // short bold segment across that bar's own width instead of one line
-  // spanning the whole chart. Parallel array to `series`.
-  const refValues = opts.refValues;
-  const hasPerBarRef = Array.isArray(refValues);
-  const finitePerBarRefs = hasPerBarRef ? refValues.filter(v => v !== null && v !== undefined && isFinite(v)) : [];
-  const maxPerBarRef = finitePerBarRefs.length ? Math.max(...finitePerBarRefs) : 0;
-  // Ensure the axis always extends past the reference value so the dashed
-  // line (e.g. the Worker max) stays visible even when every bar sits well
-  // below it, instead of being clipped off the top of the chart.
-  const maxData = data.length ? Math.max(...data.filter(v => v !== null && v !== undefined && isFinite(v)), 0) : 0;
-  const refCeil = hasRef ? refValue : (finitePerBarRefs.length ? maxPerBarRef : 0);
-  const suggestedMax = (hasRef || finitePerBarRefs.length) ? Math.max(maxData, refCeil) * 1.15 : undefined;
-
-  const refLinePlugin = {
-    id: 'refLine_' + canvasId,
-    afterDraw(chart){
-      if(!hasRef) return;
-      const { ctx, chartArea, scales } = chart;
-      if(!chartArea || !scales.y) return;
-      const yPos = scales.y.getPixelForValue(refValue);
-      if(yPos < chartArea.top - 1 || yPos > chartArea.bottom + 1) return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.setLineDash([6, 4]);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = opts.refColor || '#dc2626';
-      ctx.moveTo(chartArea.left, yPos);
-      ctx.lineTo(chartArea.right, yPos);
-      ctx.stroke();
-
-      if(opts.refLabelFormat){
-        const label = opts.refLabelFormat(refValue);
-        ctx.setLineDash([]);
-        ctx.font = '700 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
-        const textW = ctx.measureText(label).width;
-        const padX = 4, padY = 2;
-        const boxX = chartArea.right - textW - padX * 2 - 2;
-        // Keep the label's box just above the line unless that would push it
-        // off the top of the chart area, in which case drop it below instead.
-        const above = (yPos - 14 - padY * 2) >= chartArea.top;
-        const boxY = above ? (yPos - 14 - padY * 2) : (yPos + 4);
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillRect(boxX, boxY, textW + padX * 2, 12 + padY * 2);
-        ctx.fillStyle = opts.refColor || '#dc2626';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(label, boxX + padX, boxY + padY);
-      }
-      ctx.restore();
-    }
-  };
-
-  // Draws each team's own average as a short, bold, solid black segment that
-  // spans only that bar's width (not a line across the whole chart), with a
-  // small data label above it - e.g. the "Giờ trung bình / 1 lượt" average
-  // per team on the Hour/Amount by Team charts.
-  const perBarRefPlugin = {
-    id: 'perBarRef_' + canvasId,
-    afterDatasetsDraw(chart){
-      if(!hasPerBarRef) return;
-      const { ctx, chartArea, scales } = chart;
-      if(!chartArea || !scales.y) return;
-      const meta = chart.getDatasetMeta(0);
-      ctx.save();
-      meta.data.forEach((bar, i) => {
-        const rv = refValues[i];
-        if(rv === null || rv === undefined || !isFinite(rv)) return;
-        const yPos = scales.y.getPixelForValue(rv);
-        if(yPos < chartArea.top - 1 || yPos > chartArea.bottom + 1) return;
-        const halfW = (bar.width || 24) / 2;
-        const x1 = bar.x - halfW;
-        const x2 = bar.x + halfW;
-
-        ctx.beginPath();
-        ctx.setLineDash([]);
-        ctx.lineWidth = opts.refLineWidth || 3;
-        ctx.strokeStyle = opts.refColor || '#000000';
-        ctx.lineCap = 'butt';
-        ctx.moveTo(x1, yPos);
-        ctx.lineTo(x2, yPos);
-        ctx.stroke();
-
-        if(opts.refLabelFormat){
-          const label = opts.refLabelFormat(rv);
-          ctx.font = '700 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
-          const textW = ctx.measureText(label).width;
-          const padX = 3, padY = 1;
-          // Keep the label just above its own segment unless that would push
-          // it off the top of the chart area, in which case drop it below.
-          const above = (yPos - 12 - padY * 2) >= chartArea.top;
-          const boxY = above ? (yPos - 12 - padY * 2) : (yPos + 3);
-          const boxX = bar.x - (textW + padX * 2) / 2;
-          ctx.fillStyle = 'rgba(255,255,255,0.9)';
-          ctx.fillRect(boxX, boxY, textW + padX * 2, 10 + padY * 2);
-          ctx.fillStyle = opts.refColor || '#000000';
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(label, boxX + padX, boxY + padY);
-        }
-      });
-      ctx.restore();
-    }
-  };
-
-  const dataLabelPlugin = {
-    id: 'dataLabels_' + canvasId,
-    afterDatasetsDraw(chart){
-      const { ctx } = chart;
-      const meta = chart.getDatasetMeta(0);
-      ctx.save();
-      ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
-      ctx.fillStyle = '#20242c';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      meta.data.forEach((bar, i) => {
-        const val = data[i];
-        if(val === undefined || val === null || !isFinite(val)) return;
-        // Data labels always show a plain number (no unit suffix like "h"),
-        // independent of the tooltip's formatting.
-        const label = opts.dataLabelFormat ? opts.dataLabelFormat(val) : (Math.round(val * 10) / 10);
-        ctx.fillText(label, bar.x, bar.y - 4);
-      });
-      ctx.restore();
-    }
-  };
-
-  trendCharts[canvasId] = new Chart(canvasEl, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: opts.label || '',
-        data,
-        backgroundColor: opts.color || 'rgba(47,111,237,0.65)',
-        borderRadius: 3,
-        maxBarThickness: 34
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 250 },
-      layout: { padding: { top: 18 } },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label(item){ return opts.tooltipFormat ? opts.tooltipFormat(item.parsed.y) : item.parsed.y; }
-          }
-        }
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-        y: { beginAtZero: true, suggestedMax, grid: { color: '#eef0f2' }, ticks: { font: { size: 10 }, maxTicksLimit: 5, callback: opts.yTickFormat ? (v => opts.yTickFormat(v)) : undefined } }
-      }
-    },
-    plugins: [refLinePlugin, perBarRefPlugin, dataLabelPlugin]
-  });
-}
-
-/* Compact display for the "Total Amount by Team" chart, expressed in
-   millions with one decimal, e.g. 4200000 -> "4.2m", 950000 -> "1.0m". */
-function formatAmountM(v){
-  const m = v / 1000000;
-  return m.toFixed(1) + 'm';
-}
-
-function trendPeriodLabel(year, month){
-  return month ? (MONTH_ABBR[Number(month) - 1] + ' ' + year) : ('Year ' + year);
-}
-
-/* Year options only ever list years for which OT data has actually been
-   found (trendKnownYears), instead of a fixed trailing range - e.g. today
-   only "2026" shows up until data exists in another year. The current year
-   is always present since trendKnownYears is seeded with it at startup. */
-function trendYearOptions(){
-  return Array.from(trendKnownYears).sort((a, b) => b - a);
-}
-
-function trendMonthSelectHtml(id, selectedMonth, disabled){
-  const opts = ['<option value="">All months</option>']
-    .concat(MONTH_ABBR.map((m, i) => `<option value="${i+1}" ${Number(selectedMonth)===i+1?'selected':''}>${m}</option>`));
-  return `<select id="${id}" ${disabled?'disabled':''}>${opts.join('')}</select>`;
-}
-
-/* Same as trendMonthSelectHtml but always requires one specific month picked
-   (no "All months" option) - used by the QA Detail box, whose day-by-day row
-   needs exactly one month to enumerate days for. */
-function trendMonthSelectHtmlRequired(id, selectedMonth, disabled){
-  const opts = MONTH_ABBR.map((m, i) => `<option value="${i+1}" ${Number(selectedMonth)===i+1?'selected':''}>${m}</option>`);
-  return `<select id="${id}" ${disabled?'disabled':''}>${opts.join('')}</select>`;
-}
-
-function trendYearSelectHtml(id, selectedYear, disabled){
-  const opts = trendYearOptions().map(y => `<option value="${y}" ${Number(selectedYear)===y?'selected':''}>${y}</option>`);
-  return `<select id="${id}" ${disabled?'disabled':''}>${opts.join('')}</select>`;
-}
-
-/* Fixed, alphabetically-sorted list of the 12 QA(Staff) teams (Own Team,
-   normalized so MW Colorist/F6-F7 Colorist -> "Colorist" and MW Lab/F7 Lab
-   -> "Lab"), derived from Emp IDs whose EMP_LIST category is "Staff" only -
-   Worker-only teams (PSC/SOP/FQC groups) are excluded. Used to populate the
-   QA Detail Team dropdown. */
-function staffDetailTeamOptions(){
-  const teams = new Set();
-  EMP_LIST.filter(e => e.category === 'Staff').forEach(e => {
-    teams.add(normalizeTeamName(TEAM_MAP[e.id] || ''));
-  });
-  return Array.from(teams).sort((a, b) => a.localeCompare(b));
-}
-
-/* Deduped, name-sorted list of QA(Staff) people (by Emp ID) for the QA Detail
-   Full Name filter, optionally narrowed to one normalized Own Team. Keyed the
-   same way as buildStaffDetailData/buildWorkerEmpSeries. */
-function staffDetailPeopleOptions(team){
-  const seen = new Map();
-  EMP_LIST.filter(e => e.category === 'Staff').forEach(e => {
-    if(team && normalizeTeamName(TEAM_MAP[e.id] || '') !== team) return;
-    const key = (e.id || '').trim() || ('__' + (e.name || '').trim());
-    if(!seen.has(key)) seen.set(key, e.name || e.id);
-  });
-  return Array.from(seen.entries())
-    .map(([key, name]) => ({ key, name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/* Sorted list of the QA(Worker) positions (PSC / SOP / FQC, normalized from
-   their Own Team string), derived from Emp IDs whose EMP_LIST category is
-   "Worker" only. Used to populate the QA(Worker) Detail Position dropdown. */
-function workerDetailPositionOptions(){
-  const positions = new Set();
-  EMP_LIST.filter(e => e.category === 'Worker').forEach(e => {
-    positions.add(normalizeWorkerPosition(TEAM_MAP[e.id] || ''));
-  });
-  return Array.from(positions).sort((a, b) => a.localeCompare(b));
-}
-
-/* Deduped, name-sorted list of QA(Worker) people (by Emp ID) for the
-   QA(Worker) Detail Full Name filter, optionally narrowed to one Position.
-   Keyed the same way as buildWorkerEmpSeries/buildWorkerDetailData. */
-function workerDetailPeopleOptions(position){
-  const seen = new Map();
-  EMP_LIST.filter(e => e.category === 'Worker').forEach(e => {
-    if(position && normalizeWorkerPosition(TEAM_MAP[e.id] || '') !== position) return;
-    const key = (e.id || '').trim() || ('__' + (e.name || '').trim());
-    if(!seen.has(key)) seen.set(key, e.name || e.id);
-  });
-  return Array.from(seen.entries())
-    .map(([key, name]) => ({ key, name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/* Renders one numeric row-table for the QA Detail box: a header row of column
-   labels (days or months) plus an Hour row and an Amount row. Missing values
-   (day/month not reached yet) render as "-". When sumHour/sumAmount are
-   passed, an extra "Sum" column is appended after the last day/month column. */
-function qaDetailTableHtml(colLabel, headers, hourRow, amountRow, sumHour, sumAmount){
-  const fmtH = v => v === null ? '-' : v.toFixed(1);
-  const fmtA = v => v === null ? '-' : Math.round(v).toLocaleString('en-US');
-  const hasSum = sumHour !== undefined;
-  const sumHeaderCell = hasSum ? `<th class="qa-detail-sum-col">Sum</th>` : '';
-  const sumHourCell = hasSum ? `<td class="qa-detail-sum-col">${fmtH(sumHour)}</td>` : '';
-  const sumAmountCell = hasSum ? `<td class="qa-detail-sum-col">${fmtA(sumAmount)}</td>` : '';
-  return `
-    <div class="qa-detail-scroll">
-      <table class="qa-detail-table">
-        <thead><tr><th>${esc(colLabel)}</th>${headers.map(h => `<th>${esc(String(h))}</th>`).join('')}${sumHeaderCell}</tr></thead>
-        <tbody>
-          <tr><td>Hour</td>${hourRow.map(v => `<td>${fmtH(v)}</td>`).join('')}${sumHourCell}</tr>
-          <tr><td>Amount</td>${amountRow.map(v => `<td>${fmtA(v)}</td>`).join('')}${sumAmountCell}</tr>
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderTrendTab(app){
-  const tr = state.trend;
-
-  function switchTab(cat){
-    if(state.category === cat) return;
-    state.category = cat;
-    state.confirmingSign = false;
-    state.confirmingUnlock = false;
-    state.confirmingReject = false;
-    state.showSignOffActions = false;
-    state.exportMsg = '';
-    state.formError = '';
-    state.form = { idCode:'', fullName:'', otFrom:'', otTo:'', requestedBy:'', remark:'', factory:'', ownTeam:'' };
-    state.empSuggestOpen = false;
-    if(cat === 'DailySummary'){
-      state.dailySummary.loading = true;
-      loadDailySummary(false);
-    } else if(cat === 'WeeklySummary'){
-      state.weeklySummary.loading = true;
-      loadWeeklySummary(false);
-    } else if(cat === 'Trend'){
-      // Moi lan mo lai tab Trend: coi du lieu hom nay la co the da cu (vd
-      // vua nhap/sua OT o tab khac), nen xoa cache cua hom nay va load lai -
-      // cac ngay khac van dung cache san co nen khong bi cham lai nhu truoc.
-      if(state.trend.unlocked){
-        invalidateTrendCacheForToday();
-        loadTrendData();
-      } else {
-        render();
-      }
-    } else {
-      state.loading = true;
-      loadData(false);
-    }
-  }
-
-  function wireTabBar(){
-    const tabStaff = document.getElementById('tabStaff');
-    if(tabStaff) tabStaff.onclick = ()=>switchTab('Staff');
-    const tabWorker = document.getElementById('tabWorker');
-    if(tabWorker) tabWorker.onclick = ()=>switchTab('Worker');
-    const tabDailySummary = document.getElementById('tabDailySummary');
-    if(tabDailySummary) tabDailySummary.onclick = ()=>switchTab('DailySummary');
-    const tabWeeklySummary = document.getElementById('tabWeeklySummary');
-    if(tabWeeklySummary) tabWeeklySummary.onclick = ()=>switchTab('WeeklySummary');
-  }
-
-  if(!tr.unlocked){
-    app.innerHTML = `
-      <div class="tab-bar">
-        <div class="tab-bar-left">
-        <button class="tab-btn" id="tabStaff">Staff</button>
-        <button class="tab-btn" id="tabWorker">Worker</button>
-        <button class="tab-btn" id="tabDailySummary">Daily</button>
-        <button class="tab-btn" id="tabWeeklySummary">Weekly</button>
-        <button class="tab-btn active" id="tabTrend">Summary</button>
-        </div>
-      </div>
-      <div class="panel trend-lock">
-        <div class="lock-icon">&#128274;</div>
-        <h3>Trend is password-protected</h3>
-        <p>Enter the password to view QA Staff &amp; Worker overtime trend charts.</p>
-        <div class="trend-lock-row">
-          <input type="password" id="trendPw" placeholder="Password" value="${esc(tr.pwInput)}">
-          <button class="btn btn-steel" id="trendUnlockBtn">Unlock</button>
-        </div>
-        ${tr.pwError ? `<div class="pw-error" style="margin-top:10px;">${esc(tr.pwError)}</div>` : ''}
-      </div>
-    `;
-    wireTabBar();
-
-    function attemptUnlock(){
-      if(tr.pwInput === SIGN_PASSWORD){
-        tr.unlocked = true;
-        tr.pwError = '';
-        tr.pwInput = '';
-        render();
-        loadTrendData();
-      } else {
-        tr.pwError = 'Incorrect password.';
-        render();
-      }
-    }
-    const pwEl = document.getElementById('trendPw');
-    if(pwEl){
-      pwEl.oninput = (e)=>{ tr.pwInput = e.target.value; };
-      pwEl.onkeydown = (e)=>{ if(e.key === 'Enter') attemptUnlock(); };
-      pwEl.focus();
-    }
-    const unlockBtn = document.getElementById('trendUnlockBtn');
-    if(unlockBtn) unlockBtn.onclick = attemptUnlock;
-    return;
-  }
-
-  const showCharts = tr.loaded && !tr.loading;
-
-  // QA(Staff) Trend - Total Hours / Total Amount / Average by Team all share
-  // one Year/Month filter (tr.staffPeriod) shown once at the section level.
-  const staffDates = trendDatesForYearMonth(tr.staffPeriod.year, tr.staffPeriod.month);
-  const staffHourSeries = showCharts ? buildStaffTeamSeries(staffDates, 'hour') : [];
-  const staffAmountSeries = showCharts ? buildStaffTeamSeries(staffDates, 'amount') : [];
-  const staffHourTotal = staffHourSeries.reduce((s,x)=>s+x.value,0);
-  const staffAmountTotal = staffAmountSeries.reduce((s,x)=>s+x.value,0);
-  // Average of the team totals themselves (mean of the bars), used for the
-  // black dashed reference line on the Total Hours / Total Amount charts.
-  const staffHourTeamAvg = staffHourSeries.length ? staffHourTotal / staffHourSeries.length : null;
-  const staffAmountTeamAvg = staffAmountSeries.length ? staffAmountTotal / staffAmountSeries.length : null;
-  // Average Hour by Team - built from the same shared dates/series.
-  const staffAverage = showCharts
-    ? buildStaffAverageByTeam(staffHourSeries, staffDates, staffAmountSeries, staffDates)
-    : { teams: [], hourValues: [], amountValues: [] };
-  const staffAverageSeries = staffAverage.teams.map((t, i) => ({ label: t, value: staffAverage.hourValues[i] }));
-  // Overall average hour/turn across ALL teams combined, same "total/turns"
-  // method as each team's own average - used for the chart's reference line.
-  const staffOverallHourPerTurn = showCharts ? trendOverallAveragePerTurn(staffHourSeries, staffDates) : null;
-
-  // QA(Staff) Trend - QA Detail box: numeric day/month breakdown for one person.
-  const staffDetailTeams = staffDetailTeamOptions();
-  const staffDetailPeople = staffDetailPeopleOptions(tr.staffDetail.team);
-  const staffDetailData = (showCharts && tr.staffDetail.fullName)
-    ? buildStaffDetailData(tr.staffDetail.fullName, tr.staffDetail.year, tr.staffDetail.month)
-    : null;
-
-  // QA(Worker) Trend - hour by Emp ID, three independent Week/Month/Year boxes.
-  const workerWeekDates = trendDatesInRange(tr.workerWeek.from, tr.workerWeek.to);
-  const workerMonthDates = trendDatesForYearMonth(tr.workerMonth.year, tr.workerMonth.month);
-  const workerYearDates = trendDatesInYear(tr.workerYear.year);
-  const workerWeekSeries = showCharts ? buildWorkerEmpSeries(workerWeekDates) : [];
-  const workerMonthSeries = showCharts ? buildWorkerEmpSeries(workerMonthDates) : [];
-  const workerYearSeries = showCharts ? buildWorkerEmpSeries(workerYearDates) : [];
-
-  // QA(Worker) Trend - QA Detail box: numeric day/month breakdown for one person, filtered by Position.
-  const workerDetailPositions = workerDetailPositionOptions();
-  const workerDetailPeople = workerDetailPeopleOptions(tr.workerDetail.position);
-  const workerDetailData = (showCharts && tr.workerDetail.fullName)
-    ? buildWorkerDetailData(tr.workerDetail.fullName, tr.workerDetail.year, tr.workerDetail.month)
-    : null;
-
-  app.innerHTML = `
-    <div class="app-header">QA Overtime</div>
-    <div class="tab-bar">
-      <div class="tab-bar-left">
-      <button class="tab-btn" id="tabStaff">Staff</button>
-      <button class="tab-btn" id="tabWorker">Worker</button>
-      <button class="tab-btn" id="tabDailySummary">Daily</button>
-      <button class="tab-btn" id="tabWeeklySummary">Weekly</button>
-      <button class="tab-btn active" id="tabTrend">Summary</button>
-      </div>
-    <div class="topbar">
-      <div class="topbar-right">
-        <button class="btn btn-red btn-sm" id="trendLockBtn">&#128274; Lock</button>
-      </div>
-    </div>
-    </div>
-
-    ${tr.loading ? `<div class="empty-state">Loading OT data${tr.loadProgress ? ' &mdash; ' + tr.loadProgress.done + ' / ' + tr.loadProgress.total + ' days' : '...'}</div>` : `
-    <div class="trend-section">
-      <div class="trend-section-head">
-        <div class="trend-section-title">QA (Staff)</div>
-        <div class="chart-card-filters">
-          ${trendYearSelectHtml('staffPeriodYearSel', tr.staffPeriod.year)}
-          ${trendMonthSelectHtml('staffPeriodMonthSel', tr.staffPeriod.month)}
-        </div>
-      </div>
-      <div class="trend-charts-3">
-        <div class="chart-card">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">Total Hours by Team</div>
-          </div>
-          <div class="chart-card-legend">${esc(trendPeriodLabel(tr.staffPeriod.year, tr.staffPeriod.month))} &middot; Total: ${staffHourTotal.toFixed(1)}h</div>
-          <div class="chart-wrap"><canvas id="trendStaffHourChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">Total Amount by Team</div>
-          </div>
-          <div class="chart-card-legend">${esc(trendPeriodLabel(tr.staffPeriod.year, tr.staffPeriod.month))} &middot; Total: ${Math.round(staffAmountTotal).toLocaleString('en-US')}</div>
-          <div class="chart-wrap"><canvas id="trendStaffAmountChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">Average Hour</div>
-          </div>
-          <div class="chart-card-legend">
-            <span>${esc(trendPeriodLabel(tr.staffPeriod.year, tr.staffPeriod.month))}</span>
-            <span><span style="width:11px;height:9px;border-radius:2px;background:rgba(47,111,237,0.65);display:inline-block;"></span>Average Hour by Team</span>
-            <span><span style="width:14px;height:2px;border-radius:1px;background:#000;display:inline-block;"></span>Average of All Teams</span>
-          </div>
-          <div class="chart-wrap"><canvas id="trendStaffAverageChart"></canvas></div>
-        </div>
-        <div class="chart-card" style="grid-column:1 / -1;">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">QA Detail</div>
-            <div class="chart-card-filters">
-              ${trendYearSelectHtml('staffDetailYearSel', tr.staffDetail.year)}
-              ${trendMonthSelectHtmlRequired('staffDetailMonthSel', tr.staffDetail.month)}
-              <select id="staffDetailTeamSel" style="min-width:130px;">
-                <option value="">-- All Teams --</option>
-                ${staffDetailTeams.map(t => `<option value="${esc(t)}" ${tr.staffDetail.team===t?'selected':''}>${esc(t)}</option>`).join('')}
-              </select>
-              <select id="staffDetailNameSel" style="min-width:180px;">
-                <option value="">-- Select Full Name --</option>
-                ${staffDetailPeople.map(p => `<option value="${esc(p.key)}" ${tr.staffDetail.fullName===p.key?'selected':''}>${esc(p.name)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          ${staffDetailData ? `
-            <div class="qa-detail-section-label">${esc(MONTH_ABBR[tr.staffDetail.month-1])} ${tr.staffDetail.year} &middot; By Day</div>
-            ${qaDetailTableHtml('Day', staffDetailData.dayHours.map((_,i)=>i+1), staffDetailData.dayHours, staffDetailData.dayAmounts, staffDetailData.daySumHour, staffDetailData.daySumAmount)}
-            <div class="qa-detail-section-label" style="margin-top:14px;">Year ${tr.staffDetail.year} &middot; By Month</div>
-            ${qaDetailTableHtml('Month', MONTH_ABBR, staffDetailData.monthHours, staffDetailData.monthAmounts, staffDetailData.monthSumHour, staffDetailData.monthSumAmount)}
-          ` : `<div class="chart-card-legend">Select a Full Name to view daily/monthly OT detail.</div>`}
-        </div>
-      </div>
-    </div>
-
-    <div class="trend-section">
-      <div class="trend-section-head">
-        <div class="trend-section-title">QA (Worker)</div>
-      </div>
-      <div class="trend-charts-3">
-        <div class="chart-card">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">Hour/Week</div>
-          </div>
-          <div class="chart-card-filters" style="margin-bottom:8px;">
-            <input type="date" id="workerWeekFromSel" value="${esc(tr.workerWeek.from)}" style="flex:1;min-width:0;" title="From">
-            <input type="date" id="workerWeekToSel" value="${esc(tr.workerWeek.to)}" style="flex:1;min-width:0;" title="To">
-          </div>
-          <div class="chart-card-legend">${esc(fmtDateShort(tr.workerWeek.from))} - ${esc(fmtDateShort(tr.workerWeek.to))} &middot; ${workerWeekSeries.length} emp(s)</div>
-          <div class="chart-wrap"><canvas id="trendWorkerWeekChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">Hour/Month</div>
-          </div>
-          <div class="chart-card-filters" style="margin-bottom:8px;">
-            ${trendYearSelectHtml('workerMonthYearSel', tr.workerMonth.year)}
-            ${trendMonthSelectHtml('workerMonthMonthSel', tr.workerMonth.month)}
-          </div>
-          <div class="chart-card-legend">${esc(trendPeriodLabel(tr.workerMonth.year, tr.workerMonth.month))} &middot; ${workerMonthSeries.length} emp(s)</div>
-          <div class="chart-wrap"><canvas id="trendWorkerMonthChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">Hour/Year</div>
-          </div>
-          <div class="chart-card-filters" style="margin-bottom:8px;">
-            ${trendYearSelectHtml('workerYearYearSel', tr.workerYear.year)}
-          </div>
-          <div class="chart-card-legend">Year ${tr.workerYear.year} &middot; ${workerYearSeries.length} emp(s)</div>
-          <div class="chart-wrap"><canvas id="trendWorkerYearChart"></canvas></div>
-        </div>
-        <div class="chart-card" style="grid-column:1 / -1;">
-          <div class="chart-card-title-row">
-            <div class="chart-card-title">QA Detail</div>
-            <div class="chart-card-filters">
-              ${trendYearSelectHtml('workerDetailYearSel', tr.workerDetail.year)}
-              ${trendMonthSelectHtmlRequired('workerDetailMonthSel', tr.workerDetail.month)}
-              <select id="workerDetailPositionSel" style="min-width:130px;">
-                <option value="">-- All Positions --</option>
-                ${workerDetailPositions.map(p => `<option value="${esc(p)}" ${tr.workerDetail.position===p?'selected':''}>${esc(p)}</option>`).join('')}
-              </select>
-              <select id="workerDetailNameSel" style="min-width:180px;">
-                <option value="">-- Select Full Name --</option>
-                ${workerDetailPeople.map(p => `<option value="${esc(p.key)}" ${tr.workerDetail.fullName===p.key?'selected':''}>${esc(p.name)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          ${workerDetailData ? `
-            <div class="qa-detail-section-label">${esc(MONTH_ABBR[tr.workerDetail.month-1])} ${tr.workerDetail.year} &middot; By Day</div>
-            ${qaDetailTableHtml('Day', workerDetailData.dayHours.map((_,i)=>i+1), workerDetailData.dayHours, workerDetailData.dayAmounts, workerDetailData.daySumHour, workerDetailData.daySumAmount)}
-            <div class="qa-detail-section-label" style="margin-top:14px;">Year ${tr.workerDetail.year} &middot; By Month</div>
-            ${qaDetailTableHtml('Month', MONTH_ABBR, workerDetailData.monthHours, workerDetailData.monthAmounts, workerDetailData.monthSumHour, workerDetailData.monthSumAmount)}
-          ` : `<div class="chart-card-legend">Select a Full Name to view daily/monthly OT detail.</div>`}
-        </div>
-      </div>
-    </div>
-    `}
-  `;
-
-  wireTabBar();
-
-
-  const lockBtn = document.getElementById('trendLockBtn');
-  if(lockBtn) lockBtn.onclick = ()=>{
-    tr.unlocked = false;
-    tr.pwInput = '';
-    tr.pwError = '';
-    render();
-  };
-
-  if(tr.loading) return;
-
-  const staffPeriodYearSel = document.getElementById('staffPeriodYearSel');
-  if(staffPeriodYearSel) staffPeriodYearSel.onchange = (e)=>{ tr.staffPeriod.year = Number(e.target.value); loadTrendData(); };
-  const staffPeriodMonthSel = document.getElementById('staffPeriodMonthSel');
-  if(staffPeriodMonthSel) staffPeriodMonthSel.onchange = (e)=>{ tr.staffPeriod.month = e.target.value ? Number(e.target.value) : ''; loadTrendData(); };
-
-  const staffDetailYearSel = document.getElementById('staffDetailYearSel');
-  if(staffDetailYearSel) staffDetailYearSel.onchange = (e)=>{ tr.staffDetail.year = Number(e.target.value); loadTrendData(); };
-  const staffDetailMonthSel = document.getElementById('staffDetailMonthSel');
-  if(staffDetailMonthSel) staffDetailMonthSel.onchange = (e)=>{ tr.staffDetail.month = Number(e.target.value); loadTrendData(); };
-  const staffDetailTeamSel = document.getElementById('staffDetailTeamSel');
-  if(staffDetailTeamSel) staffDetailTeamSel.onchange = (e)=>{
-    tr.staffDetail.team = e.target.value || '';
-    // Clear the selected person if they don't belong to the newly picked team.
-    const stillValid = staffDetailPeopleOptions(tr.staffDetail.team).some(p => p.key === tr.staffDetail.fullName);
-    if(!stillValid) tr.staffDetail.fullName = '';
-    render();
-  };
-  const staffDetailNameSel = document.getElementById('staffDetailNameSel');
-  if(staffDetailNameSel) staffDetailNameSel.onchange = (e)=>{ tr.staffDetail.fullName = e.target.value || ''; render(); };
-
-  const workerWeekFromSel = document.getElementById('workerWeekFromSel');
-  if(workerWeekFromSel) workerWeekFromSel.onchange = (e)=>{ if(e.target.value){ dateInputActive = false; tr.workerWeek.from = e.target.value; loadTrendData(); } };
-  const workerWeekToSel = document.getElementById('workerWeekToSel');
-  if(workerWeekToSel) workerWeekToSel.onchange = (e)=>{ if(e.target.value){ dateInputActive = false; tr.workerWeek.to = e.target.value; loadTrendData(); } };
-
-  const workerMonthYearSel = document.getElementById('workerMonthYearSel');
-  if(workerMonthYearSel) workerMonthYearSel.onchange = (e)=>{ tr.workerMonth.year = Number(e.target.value); loadTrendData(); };
-  const workerMonthMonthSel = document.getElementById('workerMonthMonthSel');
-  if(workerMonthMonthSel) workerMonthMonthSel.onchange = (e)=>{ tr.workerMonth.month = e.target.value ? Number(e.target.value) : ''; loadTrendData(); };
-
-  const workerYearYearSel = document.getElementById('workerYearYearSel');
-  if(workerYearYearSel) workerYearYearSel.onchange = (e)=>{ tr.workerYear.year = Number(e.target.value); loadTrendData(); };
-
-  const workerDetailYearSel = document.getElementById('workerDetailYearSel');
-  if(workerDetailYearSel) workerDetailYearSel.onchange = (e)=>{ tr.workerDetail.year = Number(e.target.value); loadTrendData(); };
-  const workerDetailMonthSel = document.getElementById('workerDetailMonthSel');
-  if(workerDetailMonthSel) workerDetailMonthSel.onchange = (e)=>{ tr.workerDetail.month = Number(e.target.value); loadTrendData(); };
-  const workerDetailPositionSel = document.getElementById('workerDetailPositionSel');
-  if(workerDetailPositionSel) workerDetailPositionSel.onchange = (e)=>{
-    tr.workerDetail.position = e.target.value || '';
-    // Clear the selected person if they don't belong to the newly picked position.
-    const stillValid = workerDetailPeopleOptions(tr.workerDetail.position).some(p => p.key === tr.workerDetail.fullName);
-    if(!stillValid) tr.workerDetail.fullName = '';
-    render();
-  };
-  const workerDetailNameSel = document.getElementById('workerDetailNameSel');
-  if(workerDetailNameSel) workerDetailNameSel.onchange = (e)=>{ tr.workerDetail.fullName = e.target.value || ''; render(); };
-
-  if(showCharts){
-    drawTrendChart('trendStaffHourChart', staffHourSeries, 'value', {
-      label: 'Hours',
-      color: 'rgba(47,111,237,0.65)',
-      tooltipFormat: v => v.toFixed(1) + 'h',
-      dataLabelFormat: v => v.toFixed(1),
-      refValue: staffHourTeamAvg,
-      refColor: '#000000',
-      refLabelFormat: v => 'Avg ' + v.toFixed(1) + 'h'
-    });
-    drawTrendChart('trendStaffAmountChart', staffAmountSeries, 'value', {
-      label: 'Amount',
-      color: 'rgba(21,128,61,0.65)',
-      tooltipFormat: v => Math.round(v).toLocaleString('en-US'),
-      dataLabelFormat: v => formatAmountM(v),
-      yTickFormat: v => formatAmountM(v),
-      refValue: staffAmountTeamAvg,
-      refColor: '#000000',
-      refLabelFormat: v => 'Avg ' + formatAmountM(v)
-    });
-    drawTrendChart('trendStaffAverageChart', staffAverageSeries, 'value', {
-      label: 'Average Hour',
-      color: 'rgba(47,111,237,0.65)',
-      tooltipFormat: v => v.toFixed(1) + 'h',
-      dataLabelFormat: v => v.toFixed(1),
-      refValue: staffOverallHourPerTurn,
-      refColor: '#000000',
-      refLabelFormat: v => 'Avg ' + v.toFixed(1) + 'h'
-    });
-    drawTrendChart('trendWorkerWeekChart', workerWeekSeries, 'value', {
-      label: 'Hours',
-      color: 'rgba(253,186,116,0.8)',
-      tooltipFormat: v => v.toFixed(1) + 'h',
-      dataLabelFormat: v => v.toFixed(1),
-      refValue: TREND_WORKER_MAX.week,
-      refColor: '#dc2626',
-      refLabelFormat: v => 'Max ' + v + 'h'
-    });
-    drawTrendChart('trendWorkerMonthChart', workerMonthSeries, 'value', {
-      label: 'Hours',
-      color: 'rgba(249,115,22,0.8)',
-      tooltipFormat: v => v.toFixed(1) + 'h',
-      dataLabelFormat: v => v.toFixed(1),
-      refValue: TREND_WORKER_MAX.month,
-      refColor: '#dc2626',
-      refLabelFormat: v => 'Max ' + v + 'h'
-    });
-    drawTrendChart('trendWorkerYearChart', workerYearSeries, 'value', {
-      label: 'Hours',
-      color: 'rgba(154,52,18,0.85)',
-      tooltipFormat: v => v.toFixed(1) + 'h',
-      dataLabelFormat: v => v.toFixed(1),
-      refValue: TREND_WORKER_MAX.year,
-      refColor: '#dc2626',
-      refLabelFormat: v => 'Max ' + v + 'h'
-    });
-  } else if(!tr.loaded && !tr.loading){
-    loadTrendData();
-  }
 }
 
 document.addEventListener('click', (e)=>{
