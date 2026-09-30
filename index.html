@@ -440,6 +440,15 @@ let pollTimer = null;
 // loadData() (Staff/Worker) - khong dung toi loadDailySummary()/
 // loadWeeklySummary() dang chay on dinh, tranh anh huong ngoai y muon.
 let loadDataAbort = null;
+/* FIX treo 14 phut: vong poll 2s truoc day LUON huy request loadData() dang bay
+   roi tao request moi. Apps Script mat ~2-3s/request (302 -> echo redirect)
+   nen request nao cung bi huy truoc khi ve toi noi ("echo?user_content_key...
+   (canceled)" trong Network) -> du lieu khong bao gio ve cho den khi tinh co
+   co 1 request ve kip trong < 2s. Gio: poll se BO QUA neu request cung key
+   van dang bay (toi da 30s); chi thao tac cua nguoi dung (doi ngay/tab/Refresh)
+   moi huy request cu. */
+let loadDataBusyKey = null;
+let loadDataBusySince = 0;
 
 /* Co bao mot o input date "dang duoc thao tac" (lich dang mo). Khong dua vao
    document.activeElement nhu truoc nua vi tren nhieu trinh duyet/webview di
@@ -604,20 +613,24 @@ function refreshButtonHtml(id, obj, label){
     </div>`;
 }
 
-async function loadData(showSyncDot){
+async function loadData(showSyncDot, isPoll){
   if(NOT_CONFIGURED){ state.loading = false; render(); return; }
+  if(isPoll && loadDataBusyKey === storageDateKey() && (Date.now() - loadDataBusySince) < 30000) return;
   // Huy request GET truoc do neu no van con dang cho/dang retry (xem giai
   // thich chi tiet o khai bao loadDataAbort ben tren) - nhuong ngay 1 slot
   // ket noi cho request MOI nay thay vi de request cu tiep tuc chiem giu.
   if(loadDataAbort) loadDataAbort.abort();
   loadDataAbort = new AbortController();
   const mySignal = loadDataAbort.signal;
+  const myController = loadDataAbort;
   // Chup lai key (category+date) NGAY LUC bat dau request nay - dung de doi
   // chieu lai sau khi await xong (xem giai thich ben duoi). storageDateKey()
   // doc state.category/state.date TAI THOI DIEM goi, nen neu nguoi dung
   // chuyen tab (Staff <-> Worker) hoac doi ngay trong luc request nay con
   // dang bay, gia tri storageDateKey() se khac di.
   const requestedKey = storageDateKey();
+  loadDataBusyKey = requestedKey;
+  loadDataBusySince = Date.now();
   // shouldSkipRender() duoc GOI LAI ngay truoc moi lan render(), khong dung
   // 1 gia tri "dong bang" tinh tu dau ham nhu truoc - vi ham nay await goi
   // API mat 200-800ms; neu nguoi dung bam mo lich chon ngay DUNG LUC dang
@@ -655,6 +668,7 @@ async function loadData(showSyncDot){
     console.error(e);
     if(requestedKey === storageDateKey()) state.syncError = 'Sync failed: ' + e.message;
   }
+  if(loadDataAbort === myController) loadDataBusyKey = null;
   // Cung chi cap nhat cac co trang thai nay khi request van con "khop" voi
   // tab/ngay hien tai - neu khong, day la 1 request cu da lac tab (xem giai
   // thich o tren) va khong duoc phep tat co "loading"/"syncing" cua tab MOI
@@ -674,7 +688,7 @@ function startPolling(){
     if(state.category === 'DailySummary') loadDailySummary(false);
     else if(state.category === 'WeeklySummary') loadWeeklySummary(false);
     else if(state.category === 'Trend') { /* no auto-poll: trend data is cached and fetched on demand */ }
-    else loadData(false);
+    else loadData(false, true);
   }, 2000); // Request list refresh interval: 2s so new entries from other users/tabs show up quickly
 }
 
