@@ -1049,6 +1049,17 @@ async function buildFilledPdfBytes(silent){
   // Công thức Total (G71) đã đúng sẵn trong file mẫu: SUM(G11:G70)
   // (không cần patch runtime nữa)
 
+  // Recheck (cột G): thay công thức cũ của template (chỉ làm tròn lên cho 0.5–4.5h,
+  // nên 5.5h bị tính 275,000) bằng công thức mới: mọi mức x.5h đều làm tròn LÊN
+  // giờ nguyên kế tiếp (5.5h -> 6h = 300,000). m = tổng số phút = (To - From) * 1440.
+  // Dùng ROUND(...*1440) thay HOUR()/MINUTE() để tránh sai số số thực của Excel time.
+  for(let rn = 11; rn <= 70; rn++){
+    const m = 'MAX(0,ROUND((F' + rn + '-E' + rn + ')*1440,0))';
+    const fx = 'IF(MOD(' + m + ',60)=30,ROUNDUP(' + m + '/60,0),' + m + '/60)*50000';
+    const reG0 = new RegExp('<c r="G' + rn + '"([^>]*)>.*?</c>');
+    sheetXml = sheetXml.replace(reG0, (mm, attrs) => '<c r="G' + rn + '"' + attrs + '><f>' + fx + '</f><v>0</v></c>');
+  }
+
   // Worker tab: remove the Recheck (column G) formula entirely across all
   // template rows. Staff tab keeps the original formula untouched.
   if(state.category === 'Worker'){
