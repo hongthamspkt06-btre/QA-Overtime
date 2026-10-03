@@ -257,9 +257,12 @@ function hoursDiff(fromStr, toStr){
 }
 function computeOtAmount(hours){
   const RATE = 50000;
-  const halfSteps = [0.5, 1.5, 2.5, 3.5, 4.5];
-  if(halfSteps.indexOf(hours) >= 0){
-    return (hours + 0.5) * RATE;
+  /* Quy tắc: số giờ lẻ 0.5 (x.5h) được làm tròn LÊN thành giờ nguyên kế tiếp
+     (vd 2.5h -> 3h, 5.5h -> 6h). Áp dụng cho mọi x.5, không giới hạn số giờ. */
+  const twice = Math.round(hours * 2);
+  const isHalfStep = twice > 0 && Math.abs(hours * 2 - twice) < 1e-9 && twice % 2 === 1;
+  if(isHalfStep){
+    return Math.ceil(hours) * RATE;
   }
   return hours * RATE;
 }
