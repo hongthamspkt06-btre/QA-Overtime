@@ -3326,6 +3326,10 @@ function renderTrendTab(app){
   const workerWeekSeries = showCharts ? buildWorkerEmpSeries(workerWeekDates) : [];
   const workerMonthSeries = showCharts ? buildWorkerEmpSeries(workerMonthDates) : [];
   const workerYearSeries = showCharts ? buildWorkerEmpSeries(workerYearDates) : [];
+  const sumSeries = arr => arr.reduce((t, x) => t + x.value, 0);
+  const workerWeekTotal = sumSeries(workerWeekSeries);
+  const workerMonthTotal = sumSeries(workerMonthSeries);
+  const workerYearTotal = sumSeries(workerYearSeries);
 
   // QA(Worker) Trend - QA Detail box: numeric day/month breakdown for one person, filtered by Position.
   const workerDetailPositions = workerDetailPositionOptions();
@@ -3425,7 +3429,7 @@ function renderTrendTab(app){
             <input type="date" id="workerWeekFromSel" value="${esc(tr.workerWeek.from)}" style="flex:1;min-width:0;" title="From">
             <input type="date" id="workerWeekToSel" value="${esc(tr.workerWeek.to)}" style="flex:1;min-width:0;" title="To">
           </div>
-          <div class="chart-card-legend">${esc(fmtDateShort(tr.workerWeek.from))} - ${esc(fmtDateShort(tr.workerWeek.to))} &middot; ${workerWeekSeries.length} emp(s)</div>
+          <div class="chart-card-legend">${esc(fmtDateShort(tr.workerWeek.from))} - ${esc(fmtDateShort(tr.workerWeek.to))} &middot; ${workerWeekSeries.length} emp(s) &middot; Total: ${workerWeekTotal.toFixed(1)}h</div>
           <div class="chart-wrap"><canvas id="trendWorkerWeekChart"></canvas></div>
         </div>
         <div class="chart-card">
@@ -3436,7 +3440,7 @@ function renderTrendTab(app){
             ${trendYearSelectHtml('workerMonthYearSel', tr.workerMonth.year)}
             ${trendMonthSelectHtml('workerMonthMonthSel', tr.workerMonth.month)}
           </div>
-          <div class="chart-card-legend">${esc(trendPeriodLabel(tr.workerMonth.year, tr.workerMonth.month))} &middot; ${workerMonthSeries.length} emp(s)</div>
+          <div class="chart-card-legend">${esc(trendPeriodLabel(tr.workerMonth.year, tr.workerMonth.month))} &middot; ${workerMonthSeries.length} emp(s) &middot; Total: ${workerMonthTotal.toFixed(1)}h</div>
           <div class="chart-wrap"><canvas id="trendWorkerMonthChart"></canvas></div>
         </div>
         <div class="chart-card">
@@ -3446,7 +3450,7 @@ function renderTrendTab(app){
           <div class="chart-card-filters" style="margin-bottom:8px;">
             ${trendYearSelectHtml('workerYearYearSel', tr.workerYear.year)}
           </div>
-          <div class="chart-card-legend">Year ${tr.workerYear.year} &middot; ${workerYearSeries.length} emp(s)</div>
+          <div class="chart-card-legend">Year ${tr.workerYear.year} &middot; ${workerYearSeries.length} emp(s) &middot; Total: ${workerYearTotal.toFixed(1)}h</div>
           <div class="chart-wrap"><canvas id="trendWorkerYearChart"></canvas></div>
         </div>
         <div class="chart-card" style="grid-column:1 / -1;">
