@@ -2964,7 +2964,7 @@ function drawTrendChart(canvasId, series, valueKey, opts){
         const boxX = chartArea.right - textW - padX * 2 - 2;
         // Keep the label's box just above the line unless that would push it
         // off the top of the chart area, in which case drop it below instead.
-        const above = (yPos - 14 - padY * 2) >= chartArea.top;
+        const above = opts.refLabelAlwaysAbove ? true : ((yPos - 14 - padY * 2) >= chartArea.top);
         const boxY = above ? (yPos - 14 - padY * 2) : (yPos + 4);
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.fillRect(boxX, boxY, textW + padX * 2, 12 + padY * 2);
@@ -3605,6 +3605,7 @@ function renderTrendTab(app){
       tooltipFormat: v => v.toFixed(1) + 'h',
       dataLabelFormat: v => Math.round(v),
       dataLabelFontSize: 9,
+      refLabelAlwaysAbove: true,
       yMax: 320,
       yStep: 160,
       refValue: TREND_WORKER_MAX.year,
