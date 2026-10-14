@@ -3079,7 +3079,7 @@ function drawTrendChart(canvasId, series, valueKey, opts){
       },
       scales: {
         x: { grid: { display: false }, ticks: hasShort ? { font: { size: 9 }, maxRotation: 0, minRotation: 0, autoSkip: false } : { font: { size: 10 } } },
-        y: { beginAtZero: true, suggestedMax, grid: { color: '#eef0f2' }, ticks: { font: { size: 10 }, maxTicksLimit: 5, callback: opts.yTickFormat ? (v => opts.yTickFormat(v)) : undefined } }
+        y: { beginAtZero: true, min: (opts.yMax !== undefined ? 0 : undefined), max: opts.yMax, suggestedMax: (opts.yMax !== undefined ? undefined : suggestedMax), grid: { color: '#eef0f2' }, ticks: { font: { size: 10 }, maxTicksLimit: 5, stepSize: opts.yStep, callback: opts.yTickFormat ? (v => opts.yTickFormat(v)) : undefined } }
       }
     },
     plugins: [refLinePlugin, perBarRefPlugin, dataLabelPlugin]
@@ -3593,6 +3593,8 @@ function renderTrendTab(app){
       tooltipFormat: v => v.toFixed(1) + 'h',
       dataLabelFormat: v => Math.round(v),
       dataLabelFontSize: 9,
+      yMax: 45,
+      yStep: 15,
       refValue: TREND_WORKER_MAX.month,
       refColor: '#dc2626',
       refLabelFormat: v => 'Max ' + v + 'h'
@@ -3603,6 +3605,8 @@ function renderTrendTab(app){
       tooltipFormat: v => v.toFixed(1) + 'h',
       dataLabelFormat: v => Math.round(v),
       dataLabelFontSize: 9,
+      yMax: 320,
+      yStep: 160,
       refValue: TREND_WORKER_MAX.year,
       refColor: '#dc2626',
       refLabelFormat: v => 'Max ' + v + 'h'
