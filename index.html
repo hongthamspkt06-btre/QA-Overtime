@@ -1166,7 +1166,9 @@ function buildWorkerEmpSeries(dates){
     const baseName = fullName || idCode || '?';
     const label = posTag ? (baseName + ' (' + posTag + ')') : baseName;
     const h = workerOtHours(r.otFrom, r.otTo);
-    if(!map.has(key)) map.set(key, { label, value: 0 });
+    const words = baseName.trim().split(/\s+/);
+    const shortLabel = posTag ? posTag.trim().split(/\s+/) : (words.length > 2 ? words.slice(-2) : words); // truc X: chi chu trong ngoac (vi tri), tach dong theo khoang trang
+    if(!map.has(key)) map.set(key, { label, shortLabel, value: 0 });
     map.get(key).value += h;
   }));
   return Array.from(map.values()).sort((a, b) => b.value - a.value);
@@ -2917,7 +2919,8 @@ function drawTrendChart(canvasId, series, valueKey, opts){
   if(!canvasEl || typeof Chart === 'undefined') return;
   if(trendCharts[canvasId]){ trendCharts[canvasId].destroy(); delete trendCharts[canvasId]; }
 
-  const labels = series.map(s => s.label);
+  const labels = series.map(s => s.shortLabel || s.label);
+  const hasShort = series.some(s => s.shortLabel);
   const data = series.map(s => s[valueKey]);
   const refValue = opts.refValue;
   const hasRef = refValue !== null && refValue !== undefined && isFinite(refValue);
@@ -3069,12 +3072,13 @@ function drawTrendChart(canvasId, series, valueKey, opts){
         legend: { display: false },
         tooltip: {
           callbacks: {
+            title(items){ const sr = series[items[0].dataIndex]; return sr ? sr.label : ''; },
             label(item){ return opts.tooltipFormat ? opts.tooltipFormat(item.parsed.y) : item.parsed.y; }
           }
         }
       },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        x: { grid: { display: false }, ticks: hasShort ? { font: { size: 9 }, maxRotation: 0, minRotation: 0, autoSkip: false } : { font: { size: 10 } } },
         y: { beginAtZero: true, suggestedMax, grid: { color: '#eef0f2' }, ticks: { font: { size: 10 }, maxTicksLimit: 5, callback: opts.yTickFormat ? (v => opts.yTickFormat(v)) : undefined } }
       }
     },
