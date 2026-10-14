@@ -1146,6 +1146,15 @@ function buildStaffAverageByTeam(hourSeries, hourDates, amountSeries, amountDate
    Emp ID when available, to keep two same-named workers separate) but
    labeled by Full Name for display, falling back to Emp ID only if the name
    is blank. Returns series sorted by value desc. */
+/* Gio tang ca cua WORKER, dung cho tab Summary > QA (Worker): 3 bieu do Hour va QA Detail.
+   neu (To - From) >= 2.0 thi gio tang ca = To - From - 0.5, nguoc lai giu
+   nguyen To - From. Staff KHONG
+   dung ham nay (giu nguyen hoursDiff). */
+function workerOtHours(fromStr, toStr){
+  const h = hoursDiff(fromStr, toStr);
+  return h >= 2.0 ? h - 0.5 : h;
+}
+
 function buildWorkerEmpSeries(dates){
   const cache = trendCache.Worker;
   const map = new Map();
@@ -1154,7 +1163,7 @@ function buildWorkerEmpSeries(dates){
     const fullName = (r.fullName || '').trim();
     const key = idCode || ('__' + fullName);
     const label = fullName || idCode || '?';
-    const h = hoursDiff(r.otFrom, r.otTo);
+    const h = workerOtHours(r.otFrom, r.otTo);
     if(!map.has(key)) map.set(key, { label, value: 0 });
     map.get(key).value += h;
   }));
@@ -1169,7 +1178,8 @@ function buildWorkerEmpSeries(dates){
    Emp ID / Full Name key scheme used by buildWorkerEmpSeries. `cache` is
    either trendCache.Staff or trendCache.Worker, so this same helper backs
    both the QA(Staff) and QA(Worker) Detail boxes. */
-function buildPersonDetailData(cache, personKey, year, month){
+function buildPersonDetailData(cache, personKey, year, month, hoursFn){
+  hoursFn = hoursFn || hoursDiff;
   const today = todayStr();
   const curYear = Number(today.slice(0, 4));
 
@@ -1180,7 +1190,7 @@ function buildPersonDetailData(cache, personKey, year, month){
       const fullName = (r.fullName || '').trim();
       const key = idCode || ('__' + fullName);
       if(key !== personKey) return;
-      const h = hoursDiff(r.otFrom, r.otTo);
+      const h = hoursFn(r.otFrom, r.otTo);
       hour += h;
       amount += computeOtAmount(h);
     });
@@ -1228,7 +1238,7 @@ function buildStaffDetailData(personKey, year, month){
 
 /* QA(Worker) Detail box: same as buildPersonDetailData, fixed to the Worker cache. */
 function buildWorkerDetailData(personKey, year, month){
-  return buildPersonDetailData(trendCache.Worker, personKey, year, month);
+  return buildPersonDetailData(trendCache.Worker, personKey, year, month, workerOtHours);
 }
 
 /* Sums an array of numbers/nulls (skipping nulls, i.e. days/months not yet
@@ -3179,7 +3189,7 @@ function qaDetailTableHtml(colLabel, headers, hourRow, amountRow, sumHour, sumAm
         <thead><tr><th>${esc(colLabel)}</th>${headers.map(h => `<th>${esc(String(h))}</th>`).join('')}${sumHeaderCell}</tr></thead>
         <tbody>
           <tr><td>Hour</td>${hourRow.map(v => `<td>${fmtH(v)}</td>`).join('')}${sumHourCell}</tr>
-          <tr><td>Amount</td>${amountRow.map(v => `<td>${fmtA(v)}</td>`).join('')}${sumAmountCell}</tr>
+          ${amountRow ? `<tr><td>Amount</td>${amountRow.map(v => `<td>${fmtA(v)}</td>`).join('')}${sumAmountCell}</tr>` : ''}
         </tbody>
       </table>
     </div>
@@ -3457,9 +3467,9 @@ function renderTrendTab(app){
           </div>
           ${workerDetailData ? `
             <div class="qa-detail-section-label">${esc(MONTH_ABBR[tr.workerDetail.month-1])} ${tr.workerDetail.year} &middot; By Day</div>
-            ${qaDetailTableHtml('Day', workerDetailData.dayHours.map((_,i)=>i+1), workerDetailData.dayHours, workerDetailData.dayAmounts, workerDetailData.daySumHour, workerDetailData.daySumAmount)}
+            ${qaDetailTableHtml('Day', workerDetailData.dayHours.map((_,i)=>i+1), workerDetailData.dayHours, null, workerDetailData.daySumHour, null)}
             <div class="qa-detail-section-label" style="margin-top:14px;">Year ${tr.workerDetail.year} &middot; By Month</div>
-            ${qaDetailTableHtml('Month', MONTH_ABBR, workerDetailData.monthHours, workerDetailData.monthAmounts, workerDetailData.monthSumHour, workerDetailData.monthSumAmount)}
+            ${qaDetailTableHtml('Month', MONTH_ABBR, workerDetailData.monthHours, null, workerDetailData.monthSumHour, null)}
           ` : `<div class="chart-card-legend">Select a Full Name to view daily/monthly OT detail.</div>`}
         </div>
       </div>
