@@ -1702,9 +1702,10 @@ async function buildFilledPdfBytes(snap){
     // Full Name (C) + Sign (D): neu ID khong co trong bang tra cuu cua template
     // (nhan vien moi) hoac dong nhap tay khong co ID -> ghi thang tu du lieu app.
     const idTrim = (r.idCode || '').trim();
-    if(lookupIds && r.fullName && (!idTrim || !lookupIds.has(idTrim))){
-      sheetXml = setStaticStrCell(sheetXml, 'C'+rn, r.fullName);
-      sheetXml = setStaticStrCell(sheetXml, 'D'+rn, defaultSignFromName(r.fullName));
+    const nameForPdf = (r.fullName || '').trim() || EMP_MAP[idTrim] || '';
+    if(lookupIds && nameForPdf && (!idTrim || !lookupIds.has(idTrim))){
+      sheetXml = setStaticStrCell(sheetXml, 'C'+rn, nameForPdf);
+      sheetXml = setStaticStrCell(sheetXml, 'D'+rn, defaultSignFromName(nameForPdf));
     }
     // Remark: cỡ chữ cố định 10pt (style 51, đã thêm sẵn trong file mẫu ở trên).
     sheetXml = setInlineStrCellStyled(sheetXml, 'J'+rn, r.remark || '', '51');
