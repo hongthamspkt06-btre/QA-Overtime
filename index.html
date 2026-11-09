@@ -1607,12 +1607,68 @@ function pdfCacheSet(fp, built){
   while(pdfCacheMap.size > PDF_CACHE_MAX) pdfCacheMap.delete(pdfCacheMap.keys().next().value);
 }
 
+/* Template co cot Full Name (C) va Sign (D) la cong thuc VLOOKUP vao sheet an
+   'DropDown List' (C2:C80). Nhan vien moi them vao EMP_LIST ma chua co trong
+   bang tra cuu nay thi PDF bi trong Full Name + Sign. Ham duoi doc danh sach ID
+   thuc su co trong bang tra cuu cua template; ID nao khong co (hoac ngoai dong 80)
+   se duoc ghi thang ten + chu ky vao o C/D (khong phu thuoc template nua). */
+async function getTemplateLookupIds(zip){
+  try{
+    const ssXml = await zip.file('xl/sharedStrings.xml').async('string');
+    const sis = ssXml.match(/<si>[\s\S]*?<\/si>/g) || [];
+    const strs = sis.map(si => (si.match(/<t[^>]*>[^<]*<\/t>/g) || []).map(t => t.replace(/<[^>]+>/g, '')).join(''));
+    const s2 = await zip.file('xl/worksheets/sheet2.xml').async('string');
+    const ids = new Set();
+    const re = /<c r="C(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    let m;
+    while((m = re.exec(s2))){
+      const rn = parseInt(m[1], 10);
+      if(rn < 2 || rn > 80) continue; // VLOOKUP chi quet C2:C80
+      const inner = m[3] || '';
+      let val = '';
+      if(/\st="s"/.test(m[2])){
+        const v = /<v>(\d+)<\/v>/.exec(inner);
+        if(v) val = strs[parseInt(v[1], 10)] || '';
+      } else if(/\st="inlineStr"/.test(m[2])){
+        const t = /<t[^>]*>([^<]*)<\/t>/.exec(inner);
+        if(t) val = t[1];
+      } else {
+        const v = /<v>([^<]*)<\/v>/.exec(inner);
+        if(v) val = v[1];
+      }
+      val = val.trim();
+      if(val) ids.add(val);
+    }
+    return ids.size ? ids : null;
+  }catch(e){
+    console.warn('Cannot read template lookup list:', e);
+    return null; // khong doc duoc -> giu nguyen hanh vi cu (dung cong thuc template)
+  }
+}
+
+/* Ghi gia tri chuoi tinh vao o dang co cong thuc (xoa t="str" cu, giu nguyen style). */
+function setStaticStrCell(xml, ref, value){
+  return setCellXml(xml, ref, (attrs) => {
+    const a = (attrs || '').replace(/\st="[^"]*"/, '');
+    return `<c r="${ref}"${a} t="inlineStr"><is><t>${escXml(value)}</t></is></c>`;
+  });
+}
+
+/* Chu ky mac dinh = tu cuoi cua ho ten, viet hoa chu dau (vd TRAN THI TUONG VI -> Vi). */
+function defaultSignFromName(fullName){
+  const words = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if(!words.length) return '';
+  const w = words[words.length - 1].toLocaleLowerCase('vi');
+  return w.charAt(0).toLocaleUpperCase('vi') + w.slice(1);
+}
+
 async function buildFilledPdfBytes(snap){
   const rows = (snap.data.rows || []).slice(0, TEMPLATE_MAX_ROWS);
   const overflow = (snap.data.rows || []).length - rows.length;
 
   const zip = await JSZip.loadAsync(b64ToUint8(TEMPLATE_B64));
   await pdfYield();
+  const lookupIds = await getTemplateLookupIds(zip);
   let sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
 
   // Widen column B (Emp/ID Code) so codes like "USV000026" are not clipped
@@ -1643,6 +1699,13 @@ async function buildFilledPdfBytes(snap){
     if(fromFrac !== null) sheetXml = setNumberCell(sheetXml, 'E'+rn, fromFrac, styleIdE);
     if(toFrac !== null) sheetXml = setNumberCell(sheetXml, 'F'+rn, toFrac, styleIdF);
     sheetXml = setInlineStrCellStyled(sheetXml, 'H'+rn, r.ownTeam || '', '14');
+    // Full Name (C) + Sign (D): neu ID khong co trong bang tra cuu cua template
+    // (nhan vien moi) hoac dong nhap tay khong co ID -> ghi thang tu du lieu app.
+    const idTrim = (r.idCode || '').trim();
+    if(lookupIds && r.fullName && (!idTrim || !lookupIds.has(idTrim))){
+      sheetXml = setStaticStrCell(sheetXml, 'C'+rn, r.fullName);
+      sheetXml = setStaticStrCell(sheetXml, 'D'+rn, defaultSignFromName(r.fullName));
+    }
     // Remark: cỡ chữ cố định 10pt (style 51, đã thêm sẵn trong file mẫu ở trên).
     sheetXml = setInlineStrCellStyled(sheetXml, 'J'+rn, r.remark || '', '51');
   });
